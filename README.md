@@ -60,6 +60,10 @@ Three tools, same engine as the CLI:
 | `shelf_validate` | read | lint a shelf against the spec; report with findings and severities |
 | `shelf_info` | read | manifest + index summary for a connecting client |
 
+Tools take flat keyword arguments — a hand-written `tools/call` looks like
+`{"name": "shelf_validate", "arguments": {"shelf_path": "/path/to/shelf"}}`,
+no wrapper object.
+
 Client configuration (stdio):
 
 ```json
@@ -83,7 +87,8 @@ create one.
 An existing docshelf/memshelf shelf becomes spec-conformant by adding
 **one file** — `shelf.yml` with `mode: single`. Nothing is migrated
 (ADR-0005). `.docshelf.json` remains a legal implementation detail;
-`shelf.yml` is the contract.
+`shelf.yml` is the contract. Ready-to-apply manifests for the shelves
+named in the roadmap live in [`docs/adoption/`](docs/adoption/README.md).
 
 ## License
 

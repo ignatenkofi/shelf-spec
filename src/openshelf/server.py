@@ -5,6 +5,13 @@ Three tools, named per the spec surface (no vendor prefix):
 (read). Every tool returns a JSON string; tool logic lives in the engine so
 it is unit-testable without MCP (pattern: docshelf-mcp server/tools split).
 
+Tools take **flat keyword arguments** (``{"shelf_path": ...}`` in
+``tools/call``), the argument style most MCP servers expose. FastMCP builds
+the input schema straight from the signatures; per-parameter constraints
+live in ``Annotated[..., Field(...)]`` metadata. Do not wrap parameters in
+a single pydantic model — that nests everything under one ``params`` key
+and breaks hand-written clients.
+
 Validation and info never scaffold a shelf silently: a directory without a
 manifest is a config-error (``shelf_validate``) or an error response
 (``shelf_info``), mirroring docshelf-mcp's ``NotAShelfError`` guard.
@@ -17,9 +24,10 @@ import json
 import logging
 import os
 from pathlib import Path
+from typing import Annotated
 
 from mcp.server.fastmcp import FastMCP
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from openshelf import __version__
 from openshelf.config import default_shelf_root
@@ -55,66 +63,27 @@ def _error_response(exc: Exception, tool: str) -> str:
     return _serialize({"status": "error", "error": str(exc), "type": type(exc).__name__})
 
 
-class _BaseInput(BaseModel):
-    model_config = ConfigDict(
-        str_strip_whitespace=True,
-        validate_assignment=True,
-        extra="forbid",
-    )
-
-
-class ShelfInitInput(_BaseInput):
-    """Input for ``shelf_init``."""
-
-    shelf_path: str | None = Field(
-        default=None,
+_ShelfPathInit = Annotated[
+    str | None,
+    Field(
         description="Shelf root to scaffold. Defaults to $OPENSHELF_ROOT or the "
         "server's working directory.",
-    )
-    name: str = Field(
-        default="",
-        description="Human-readable shelf name (stored in shelf.yml and the index H1).",
-        max_length=200,
-    )
-    mode: str = Field(
-        default="single",
-        description="Shelf mode: 'single' (all of v0) or 'multi' (reserved for M1).",
-        pattern="^(single|multi)$",
-    )
-    profile: str = Field(
-        default="document",
-        description="Rule profile: 'memory' (episodes, ledger, policy) or 'document'.",
-        pattern="^(memory|document)$",
-    )
-    categories: list[str] = Field(
-        default_factory=list,
-        description="Categories to pre-create under docs/ and declare in shelf.yml.",
-    )
-
-
-class ShelfValidateInput(_BaseInput):
-    """Input for ``shelf_validate``."""
-
-    shelf_path: str | None = Field(
-        default=None,
+    ),
+]
+_ShelfPathValidate = Annotated[
+    str | None,
+    Field(
         description="Shelf root to validate. Defaults to $OPENSHELF_ROOT or the "
         "server's working directory.",
-    )
-    manifest_path: str | None = Field(
-        default=None,
-        description="Optional external shelf.yml candidate: validate the tree "
-        "against this manifest without requiring (or touching) one inside the shelf.",
-    )
-
-
-class ShelfInfoInput(_BaseInput):
-    """Input for ``shelf_info``."""
-
-    shelf_path: str | None = Field(
-        default=None,
+    ),
+]
+_ShelfPathInfo = Annotated[
+    str | None,
+    Field(
         description="Shelf root to summarize. Defaults to $OPENSHELF_ROOT or the "
         "server's working directory.",
-    )
+    ),
+]
 
 
 @mcp.tool(
@@ -127,7 +96,34 @@ class ShelfInfoInput(_BaseInput):
         "openWorldHint": False,
     },
 )
-def tool_shelf_init(params: ShelfInitInput) -> str:
+def tool_shelf_init(
+    shelf_path: _ShelfPathInit = None,
+    name: Annotated[
+        str,
+        Field(
+            description="Human-readable shelf name (stored in shelf.yml and the index H1).",
+            max_length=200,
+        ),
+    ] = "",
+    mode: Annotated[
+        str,
+        Field(
+            description="Shelf mode: 'single' (all of v0) or 'multi' (reserved for M1).",
+            pattern="^(single|multi)$",
+        ),
+    ] = "single",
+    profile: Annotated[
+        str,
+        Field(
+            description="Rule profile: 'memory' (episodes, ledger, policy) or 'document'.",
+            pattern="^(memory|document)$",
+        ),
+    ] = "document",
+    categories: Annotated[
+        list[str],
+        Field(description="Categories to pre-create under docs/ and declare in shelf.yml."),
+    ] = [],  # noqa: B006 — read-only default; FastMCP validates a fresh list per call
+) -> str:
     """Create a shelf skeleton: shelf.yml, docs root + categories, POLICY.md
     stub, minimal INDEX.md, .gitignore, and (memory profile) a ledger header.
 
@@ -136,11 +132,11 @@ def tool_shelf_init(params: ShelfInitInput) -> str:
     """
     try:
         payload = init_shelf(
-            _resolve_root(params.shelf_path),
-            name=params.name,
-            mode=params.mode,
-            profile=params.profile,
-            categories=params.categories,
+            _resolve_root(shelf_path),
+            name=name.strip(),
+            mode=mode,
+            profile=profile,
+            categories=list(categories),
         )
         return _serialize(payload)
     except Exception as exc:
@@ -157,7 +153,16 @@ def tool_shelf_init(params: ShelfInitInput) -> str:
         "openWorldHint": False,
     },
 )
-def tool_shelf_validate(params: ShelfValidateInput) -> str:
+def tool_shelf_validate(
+    shelf_path: _ShelfPathValidate = None,
+    manifest_path: Annotated[
+        str | None,
+        Field(
+            description="Optional external shelf.yml candidate: validate the tree "
+            "against this manifest without requiring (or touching) one inside the shelf.",
+        ),
+    ] = None,
+) -> str:
     """Lint a shelf tree against shelf-spec v0.
 
     Returns a report with verdict ('valid' | 'violations' | 'config-error')
@@ -165,7 +170,7 @@ def tool_shelf_validate(params: ShelfValidateInput) -> str:
     nothing is fixed or scaffolded.
     """
     try:
-        payload = validate_shelf(_resolve_root(params.shelf_path), params.manifest_path)
+        payload = validate_shelf(_resolve_root(shelf_path), manifest_path)
         return _serialize(payload)
     except Exception as exc:
         return _error_response(exc, "shelf_validate")
@@ -181,14 +186,14 @@ def tool_shelf_validate(params: ShelfValidateInput) -> str:
         "openWorldHint": False,
     },
 )
-def tool_shelf_info(params: ShelfInfoInput) -> str:
+def tool_shelf_info(shelf_path: _ShelfPathInfo = None) -> str:
     """Manifest + index summary: name, spec version, mode, profile,
     categories with counts, ledger/policy presence, the index preamble
     (which carries the data-not-instructions wording), and which reserved
     M1 fields are present.
     """
     try:
-        payload = shelf_info(_resolve_root(params.shelf_path))
+        payload = shelf_info(_resolve_root(shelf_path))
         return _serialize(payload)
     except Exception as exc:
         return _error_response(exc, "shelf_info")
