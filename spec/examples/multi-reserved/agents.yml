@@ -1,0 +1,15 @@
+# NON-NORMATIVE SKETCH (M1 reserved) — agent registry with zones and an
+# advisory lease. Field names may change before M1; see SPEC.md section 10.
+agents:
+  - id: agent-drawings
+    vendor: example-vendor
+    model: example-model
+    zones:
+      - {category: drawings, access: rw}
+      - {category: docs, access: r}
+    lease:
+      category: drawings
+      until: 2026-08-01T12:00:00Z
+  - id: pii-auditor
+    zones:
+      - {category: "*", access: r}
