@@ -1,0 +1,4 @@
+date	episode_id	mode	approx_tokens_in	digest_tokens	notes
+2026-01-10	2026-01-10-fixture-topic	live	1500	120	synthetic
+2026-01-11	2026-01-11-fixture-research	import	800	100	synthetic import
+2026-01-12	2026-01-12-fixture-session	live	4000	140	closes the fixture session

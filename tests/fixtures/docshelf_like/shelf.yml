@@ -1,0 +1,10 @@
+spec_version: "0.1"
+mode: single
+name: "Fixture document shelf"
+profile: document
+docs_root: docs
+categories:
+  - books
+index:
+  path: INDEX.md
+  generated_by: docshelf-mcp

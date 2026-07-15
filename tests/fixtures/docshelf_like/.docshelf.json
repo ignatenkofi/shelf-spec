@@ -1,0 +1,8 @@
+{
+  "name": "Fixture document shelf",
+  "remote": "git@github.com:example-org/OldBookShelf.git",
+  "branch": "main",
+  "preamble": "This is the navigation index for the document shelf. Each entry below links to a Markdown file on GitHub (raw URL).",
+  "category_order": ["books"],
+  "split_threshold_bytes": 51200
+}
