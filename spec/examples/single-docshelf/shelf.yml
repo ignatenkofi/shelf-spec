@@ -1,0 +1,15 @@
+# Example: document shelf (docshelf profile), single mode.
+# Plain documents, no episode frontmatter, no ledger; a nested docs root
+# and an externally generated index are both allowed.
+spec_version: "0.1"
+mode: single
+name: "Example document shelf"
+profile: document
+docs_root: DOCS/markdown
+# categories omitted: implicit — any directory under docs_root is a
+# category, and documents may live directly in docs_root.
+index:
+  path: INDEX.md
+  generated_by: external
+extra_dirs:
+  - DOCS/compressed

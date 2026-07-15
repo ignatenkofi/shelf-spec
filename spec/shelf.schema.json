@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ignatenkofi/openshelf/main/spec/shelf.schema.json",
+  "title": "shelf.yml — openshelf shelf manifest (shelf-spec v0)",
+  "description": "Manifest of an openshelf shelf. A manifest that is missing, unparseable, or fails this schema is a config-error: no operation runs against the shelf before the manifest validates. Fields reserved for M1 (agents, provenance) are accepted by the schema in v0 and ignored by single-mode tooling.",
+  "type": "object",
+  "required": ["spec_version", "mode"],
+  "additionalProperties": false,
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "description": "Version of shelf-spec this shelf declares conformance to. Semver, major.minor with optional patch. v0 shelves declare \"0.1\".",
+      "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+    },
+    "mode": {
+      "type": "string",
+      "description": "single: one client/agent writes at a time (the whole v0 surface). multi: shared multi-agent shelf — reserved for M1; v0 validators report it as not yet normative.",
+      "enum": ["single", "multi"]
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable shelf name. Shown by shelf_info and normally mirrored as the INDEX H1.",
+      "minLength": 1
+    },
+    "profile": {
+      "type": "string",
+      "description": "Rule profile. memory: episodes with frontmatter, ledger and policy expected (memshelf lineage). document: plain markdown documents, no frontmatter requirements (docshelf lineage). Default: document.",
+      "enum": ["memory", "document"]
+    },
+    "docs_root": {
+      "type": "string",
+      "description": "Directory holding the shelf content, relative to the shelf root. Default: docs. May be nested (e.g. DOCS/markdown). Must not be absolute and must not contain '..'.",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\.\\.).+$"
+    },
+    "categories": {
+      "type": "array",
+      "description": "Declared categories (subdirectories of docs_root). Empty or absent = implicit: categories are whatever directories exist, and documents directly under docs_root are allowed. When declared explicitly, an undeclared category directory is a spec violation.",
+      "items": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*\\.\\.)(?!.*/).+$" },
+      "uniqueItems": true
+    },
+    "index": {
+      "type": "object",
+      "description": "Catalog file contract.",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Index file path relative to the shelf root. Default: INDEX.md.",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*\\.\\.).+$"
+        },
+        "generated_by": {
+          "type": "string",
+          "description": "Who renders the index. docshelf-mcp: the reference implementation (its generator footer marker is required). external: some other generator (no marker requirement). manual: hand-maintained — the only value that exempts the shelf from the 'INDEX is never hand-edited' rule. Default: docshelf-mcp.",
+          "enum": ["docshelf-mcp", "external", "manual"]
+        }
+      }
+    },
+    "ledger": {
+      "type": "object",
+      "description": "Shelve journal contract (memory profile SHOULD have one).",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Ledger path relative to the shelf root. Default: ledger.tsv.",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*\\.\\.).+$"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "description": "Redaction / PII policy contract.",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Policy path relative to the shelf root. Default: POLICY.md.",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*\\.\\.).+$"
+        }
+      }
+    },
+    "extra_dirs": {
+      "type": "array",
+      "description": "Additional non-markdown directories that legitimately belong to the shelf (e.g. binary sidecars like compressed PDF originals). Declared so validators know they are intentional.",
+      "items": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*\\.\\.).+$" },
+      "uniqueItems": true
+    },
+    "agents": {
+      "type": "object",
+      "description": "RESERVED for M1 (multi mode): agent registry. Accepted and ignored by v0 single-mode tooling; validators flag it as reserved in multi mode.",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path of the agent registry file relative to the shelf root. Default: agents.yml.",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*\\.\\.).+$"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "description": "RESERVED for M1 (multi mode): provenance stamps for every write. Accepted and ignored by v0 single-mode tooling.",
+      "additionalProperties": false,
+      "properties": {
+        "dir": {
+          "type": "string",
+          "description": "Directory of provenance stamps relative to the shelf root. Default: provenance/.",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*\\.\\.).+$"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether every write must carry a provenance stamp. In multi mode this is normatively true (M1)."
+        }
+      }
+    }
+  }
+}

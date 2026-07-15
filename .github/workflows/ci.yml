@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint with ruff
+        run: ruff check src tests
+
+      - name: Run tests
+        run: pytest -v
+
+      - name: Self-check — all spec examples validate against the schema
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          import jsonschema
+          import yaml
+
+          schema = json.loads(pathlib.Path("spec/shelf.schema.json").read_text("utf-8"))
+          jsonschema.Draft202012Validator.check_schema(schema)
+          validator = jsonschema.Draft202012Validator(schema)
+          examples = sorted(pathlib.Path("spec/examples").glob("*/shelf.yml"))
+          assert examples, "no spec examples found"
+          failed = False
+          for path in examples:
+              data = yaml.safe_load(path.read_text("utf-8"))
+              errors = sorted(validator.iter_errors(data), key=str)
+              if errors:
+                  failed = True
+                  print(f"FAIL {path}")
+                  for err in errors:
+                      print(f"  - {err.message}")
+              else:
+                  print(f"ok   {path}")
+          sys.exit(1 if failed else 0)
+          PY

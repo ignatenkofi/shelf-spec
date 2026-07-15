@@ -1,0 +1,6 @@
+{
+  "sample-book.md": {
+    "title": "Sample Book",
+    "description": "A synthetic public-domain-style book used by the openshelf test suite."
+  }
+}

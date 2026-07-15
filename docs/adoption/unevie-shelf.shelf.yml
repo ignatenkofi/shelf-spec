@@ -1,0 +1,14 @@
+# shelf.yml — openshelf manifest (shelf-spec v0)
+# Adding this one file makes the existing shelf spec-conformant (mode:
+# single); nothing else migrates. .docshelf.json (an older version without
+# provider/index_style keys) stays valid — loaders default missing keys.
+spec_version: "0.1"
+mode: single
+name: "Жизнь — подлинник «Une Vie» (Maupassant)"
+profile: document
+docs_root: docs
+categories:
+  - une-vie
+index:
+  path: INDEX.md
+  generated_by: docshelf-mcp

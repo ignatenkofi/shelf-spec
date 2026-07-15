@@ -1,0 +1,2 @@
+Placeholder for a binary sidecar (a compressed PDF original on the live
+shelf). Kept as text so the test fixture stays reviewable.

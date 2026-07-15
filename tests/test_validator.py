@@ -1,0 +1,290 @@
+"""Validator rules against the three shelf profiles."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from openshelf.engine.validator import parse_frontmatter, validate_shelf
+from tests.conftest import legacy_manifest
+
+
+def rules(report: dict, severity: str | None = None) -> set[str]:
+    return {
+        f["rule"]
+        for f in report["findings"]
+        if severity is None or f["severity"] == severity
+    }
+
+
+# ------------------------------------------------------------ happy paths
+
+
+def test_memshelf_like_is_clean(memshelf_like: Path) -> None:
+    report = validate_shelf(memshelf_like)
+    assert report["verdict"] == "valid"
+    assert report["findings"] == []
+
+
+def test_docshelf_like_is_clean(docshelf_like: Path) -> None:
+    report = validate_shelf(docshelf_like)
+    assert report["verdict"] == "valid"
+    assert rules(report, "error") == set()
+
+
+def test_legacy_like_with_external_manifest(legacy_like: Path) -> None:
+    report = validate_shelf(legacy_like, legacy_manifest())
+    assert report["verdict"] == "valid"
+    assert rules(report, "error") == set()
+    # No frontmatter rules (document profile), no split-layout rules
+    # (external index generator) despite the hierarchical BIGDOC tree.
+    assert "episode-frontmatter-missing" not in rules(report)
+    assert "orphaned-split-dir" not in rules(report)
+
+
+def test_no_manifest_is_config_error(legacy_like: Path) -> None:
+    report = validate_shelf(legacy_like)
+    assert report["verdict"] == "config-error"
+    assert rules(report) == {"manifest-missing"}
+    assert report["spec_version"] is None
+
+
+# --------------------------------------------------------------- frontmatter
+
+
+def test_parse_frontmatter_after_h1() -> None:
+    text = "# some-id\n\n---\nid: some-id\nkind: topic\n---\n\n## Digest\n"
+    fm = parse_frontmatter(text)
+    assert fm == {"id": "some-id", "kind": "topic"}
+
+
+def test_parse_frontmatter_at_byte_zero() -> None:
+    text = "---\nid: x\n---\nbody\n"
+    assert parse_frontmatter(text) == {"id": "x"}
+
+
+def test_parse_frontmatter_absent() -> None:
+    assert parse_frontmatter("# Title\n\nJust text.\n") is None
+
+
+def test_episode_without_frontmatter_is_error(memshelf_like: Path) -> None:
+    episode = memshelf_like / "docs" / "topics" / "2026-01-10-fixture-topic.md"
+    episode.write_text("# 2026-01-10-fixture-topic\n\nNo frontmatter.\n", encoding="utf-8")
+    report = validate_shelf(memshelf_like)
+    assert report["verdict"] == "violations"
+    assert "episode-frontmatter-missing" in rules(report, "error")
+
+
+def test_episode_id_mismatch_is_error(memshelf_like: Path) -> None:
+    episode = memshelf_like / "docs" / "topics" / "2026-01-10-fixture-topic.md"
+    text = episode.read_text(encoding="utf-8").replace(
+        "id: 2026-01-10-fixture-topic", "id: some-other-id"
+    )
+    episode.write_text(text, encoding="utf-8")
+    report = validate_shelf(memshelf_like)
+    assert "episode-frontmatter-invalid" in rules(report, "error")
+
+
+def test_episode_bad_kind_is_error(memshelf_like: Path) -> None:
+    episode = memshelf_like / "docs" / "topics" / "2026-01-10-fixture-topic.md"
+    text = episode.read_text(encoding="utf-8").replace("kind: topic", "kind: banana")
+    episode.write_text(text, encoding="utf-8")
+    report = validate_shelf(memshelf_like)
+    assert "episode-frontmatter-invalid" in rules(report, "error")
+
+
+def test_document_profile_has_no_frontmatter_rules(docshelf_like: Path) -> None:
+    report = validate_shelf(docshelf_like)
+    assert "episode-frontmatter-missing" not in rules(report)
+
+
+# -------------------------------------------------------------------- ledger
+
+
+def test_malformed_ledger_row_is_error(memshelf_like: Path) -> None:
+    ledger = memshelf_like / "ledger.tsv"
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8") + "2026-01-13\tx\tweird-mode\tNaN\t10\tnote\n",
+        encoding="utf-8",
+    )
+    report = validate_shelf(memshelf_like)
+    assert "ledger-malformed" in rules(report, "error")
+
+
+def test_bad_ledger_header_is_error(memshelf_like: Path) -> None:
+    ledger = memshelf_like / "ledger.tsv"
+    ledger.write_text("date,episode_id\n", encoding="utf-8")
+    report = validate_shelf(memshelf_like)
+    assert "ledger-malformed" in rules(report, "error")
+
+
+def test_missing_ledger_is_info_for_memory(memshelf_like: Path) -> None:
+    (memshelf_like / "ledger.tsv").unlink()
+    report = validate_shelf(memshelf_like)
+    assert report["verdict"] == "valid"
+    assert "no-ledger" in rules(report, "info")
+
+
+def test_no_ledger_rule_for_document_profile(docshelf_like: Path) -> None:
+    report = validate_shelf(docshelf_like)
+    assert "no-ledger" not in rules(report)
+
+
+# --------------------------------------------------------------------- index
+
+
+def test_hand_edited_index_is_error(memshelf_like: Path) -> None:
+    index = memshelf_like / "INDEX.md"
+    text = index.read_text(encoding="utf-8").replace("*Auto-generated by [docshelf-mcp]", "")
+    index.write_text(text, encoding="utf-8")
+    report = validate_shelf(memshelf_like)
+    assert "index-hand-edited" in rules(report, "error")
+
+
+def test_no_marker_requirement_for_external_generator(legacy_like: Path) -> None:
+    report = validate_shelf(legacy_like, legacy_manifest())
+    assert "index-hand-edited" not in rules(report)
+
+
+def test_unlisted_document_is_stale_index(memshelf_like: Path) -> None:
+    extra = memshelf_like / "docs" / "topics" / "2026-01-14-unlisted.md"
+    extra.write_text(
+        "# 2026-01-14-unlisted\n\n---\n"
+        "id: 2026-01-14-unlisted\nkind: topic\nspan: 2026-01-14\n"
+        "tags: [fixture]\napprox_tokens: 10\n---\n\n## Digest\n\nx\n\n## Decisions\n\n- y\n",
+        encoding="utf-8",
+    )
+    report = validate_shelf(memshelf_like)
+    assert "stale-index" in rules(report, "warning")
+
+
+def test_missing_index_is_warning(memshelf_like: Path) -> None:
+    (memshelf_like / "INDEX.md").unlink()
+    report = validate_shelf(memshelf_like)
+    assert "stale-index" in rules(report, "warning")
+
+
+def test_remote_mismatch_from_git_config(docshelf_like: Path) -> None:
+    # INDEX raw URLs point at example-org/OldBookShelf; origin says renamed.
+    git_dir = docshelf_like / ".git"
+    git_dir.mkdir()
+    (git_dir / "config").write_text(
+        '[remote "origin"]\n\turl = git@github.com:example-org/new-book-shelf.git\n',
+        encoding="utf-8",
+    )
+    report = validate_shelf(docshelf_like)
+    assert "remote-mismatch" in rules(report, "warning")
+
+
+def test_no_remote_mismatch_when_origin_matches(docshelf_like: Path) -> None:
+    git_dir = docshelf_like / ".git"
+    git_dir.mkdir()
+    (git_dir / "config").write_text(
+        '[remote "origin"]\n\turl = https://github.com/example-org/OldBookShelf.git\n',
+        encoding="utf-8",
+    )
+    report = validate_shelf(docshelf_like)
+    assert "remote-mismatch" not in rules(report)
+
+
+# ---------------------------------------------------------- tree structure
+
+
+def test_docs_root_missing_is_error(tmp_path: Path) -> None:
+    (tmp_path / "shelf.yml").write_text('spec_version: "0.1"\nmode: single\n', encoding="utf-8")
+    report = validate_shelf(tmp_path)
+    assert report["verdict"] == "violations"
+    assert "docs-root-missing" in rules(report, "error")
+
+
+def test_undeclared_category_is_error(memshelf_like: Path) -> None:
+    (memshelf_like / "docs" / "surprises").mkdir()
+    report = validate_shelf(memshelf_like)
+    assert "category-undeclared" in rules(report, "error")
+
+
+def test_implicit_categories_allow_any_directory(legacy_like: Path) -> None:
+    report = validate_shelf(legacy_like, legacy_manifest())
+    assert "category-undeclared" not in rules(report)
+
+
+def test_stale_meta_entry_is_warning(memshelf_like: Path) -> None:
+    meta = memshelf_like / "docs" / "topics" / ".meta.json"
+    data = json.loads(meta.read_text(encoding="utf-8"))
+    data["gone.md"] = {"title": "Gone", "description": "no file"}
+    meta.write_text(json.dumps(data), encoding="utf-8")
+    report = validate_shelf(memshelf_like)
+    assert "stale-meta-entry" in rules(report, "warning")
+
+
+def test_corrupt_meta_is_warning(memshelf_like: Path) -> None:
+    (memshelf_like / "docs" / "topics" / ".meta.json").write_text("{oops", encoding="utf-8")
+    report = validate_shelf(memshelf_like)
+    assert "corrupt-meta" in rules(report, "warning")
+
+
+def test_orphaned_split_dir_is_warning(docshelf_like: Path) -> None:
+    (docshelf_like / "docs" / "books" / "ghost-book").mkdir()
+    report = validate_shelf(docshelf_like)
+    assert "orphaned-split-dir" in rules(report, "warning")
+
+
+def test_split_numbering_gap_is_warning(docshelf_like: Path) -> None:
+    split = docshelf_like / "docs" / "books" / "sample-book"
+    (split / "002-chapter-one.md").rename(split / "005-chapter-one.md")
+    report = validate_shelf(docshelf_like)
+    assert "split-out-of-sync" in rules(report, "warning")
+
+
+def test_duplicate_title_is_warning(docshelf_like: Path) -> None:
+    books = docshelf_like / "docs" / "books"
+    (books / "second-book.md").write_text("# Second\n\ntext\n", encoding="utf-8")
+    meta = json.loads((books / ".meta.json").read_text(encoding="utf-8"))
+    meta["second-book.md"] = {"title": "Sample Book", "description": "duplicate"}
+    (books / ".meta.json").write_text(json.dumps(meta), encoding="utf-8")
+    report = validate_shelf(docshelf_like)
+    assert "duplicate-title" in rules(report, "warning")
+
+
+def test_empty_category_is_info(memshelf_like: Path) -> None:
+    manifest = memshelf_like / "shelf.yml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8").replace(
+            "  - sessions", "  - sessions\n  - drafts"
+        ),
+        encoding="utf-8",
+    )
+    report = validate_shelf(memshelf_like)
+    assert "empty-category" in rules(report, "info")
+
+
+def test_docshelf_config_conflict_is_warning(memshelf_like: Path) -> None:
+    impl = memshelf_like / ".docshelf.json"
+    data = json.loads(impl.read_text(encoding="utf-8"))
+    data["name"] = "A completely different name"
+    impl.write_text(json.dumps(data), encoding="utf-8")
+    report = validate_shelf(memshelf_like)
+    assert "docshelf-config-conflict" in rules(report, "warning")
+
+
+# ------------------------------------------------------------- reserved M1
+
+
+def test_multi_mode_is_flagged_reserved(tmp_path: Path) -> None:
+    (tmp_path / "shelf.yml").write_text(
+        'spec_version: "0.1"\nmode: multi\n', encoding="utf-8"
+    )
+    (tmp_path / "docs").mkdir()
+    report = validate_shelf(tmp_path)
+    assert "reserved-m1" in rules(report, "info")
+    assert report["verdict"] == "valid"
+
+
+def test_agents_in_single_mode_flagged_reserved(tmp_path: Path) -> None:
+    (tmp_path / "shelf.yml").write_text(
+        'spec_version: "0.1"\nmode: single\nagents: {path: agents.yml}\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "docs").mkdir()
+    report = validate_shelf(tmp_path)
+    assert "reserved-m1" in rules(report, "info")

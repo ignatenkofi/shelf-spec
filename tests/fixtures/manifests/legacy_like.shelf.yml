@@ -1,0 +1,12 @@
+# External manifest candidate for the legacy_like fixture tree — used via
+# validate(--manifest): the tree itself carries no shelf.yml.
+spec_version: "0.1"
+mode: single
+name: "Fixture legacy hardware docs"
+profile: document
+docs_root: DOCS/markdown
+index:
+  path: INDEX.md
+  generated_by: external
+extra_dirs:
+  - DOCS/compressed
