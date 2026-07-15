@@ -193,6 +193,11 @@ docs/<category>/<stem>/SUBINDEX.md
   the index and MUST NOT be hand-edited under the same conditions.
 - The full document and its split MAY coexist; a split directory whose
   parent document is gone is drift (`orphaned-split-dir`).
+- This section describes the **reference implementation's** layout.
+  Shelves whose index is generated externally (`generated_by: external`)
+  or by hand (`manual`) own their large-document layout — e.g. hierarchical
+  multi-level chapter trees — and validators do not apply the split-layout
+  drift rules (`orphaned-split-dir`, `split-out-of-sync`) to them.
 
 ### 4.4 `ledger.tsv` (memory profile)
 
@@ -364,9 +369,10 @@ warning:
 
 - `stale-meta-entry` — `.meta.json` key with no matching file.
 - `corrupt-meta` — `.meta.json` is not valid JSON.
-- `orphaned-split-dir` — split directory with no parent document.
+- `orphaned-split-dir` — split directory with no parent document (only on
+  shelves with `generated_by: docshelf-mcp` — section 4.3).
 - `split-out-of-sync` — split sections violate the `NNN-` contiguous
-  numbering contract of section 4.3.
+  numbering contract of section 4.3 (same scoping as above).
 - `duplicate-title` — two documents in one category share a title.
 - `stale-index` — the index references missing files, or documents on
   disk are absent from the index.
