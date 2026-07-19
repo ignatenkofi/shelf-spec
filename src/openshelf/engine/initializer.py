@@ -22,6 +22,7 @@ from openshelf.engine.manifest import (
     DEFAULT_LEDGER_PATH,
     DEFAULT_POLICY_PATH,
     MANIFEST_FILENAME,
+    load_manifest,
 )
 from openshelf.engine.validator import LEDGER_HEADER
 
@@ -69,6 +70,16 @@ def init_shelf(
     Returns ``{status, shelf_root, created, skipped}`` where ``created`` and
     ``skipped`` are shelf-relative paths. Existing files are never
     overwritten — re-running on a live shelf is safe and only fills gaps.
+
+    When ``path`` already carries a ``shelf.yml`` its declared paths win over
+    the module defaults, so re-running on an adopted shelf with a non-default
+    layout (e.g. ``docs_root: DOCS/markdown``) fills gaps in place instead of
+    scattering default-path junk. An existing-but-invalid manifest is a
+    config-error: init refuses rather than build on a broken contract.
+
+    Raises:
+        ManifestError: when ``path`` holds a ``shelf.yml`` that does not parse
+            or fails ``shelf.schema.json`` (rule ``manifest-invalid``).
     """
     root = Path(path).expanduser().resolve()
     categories = list(categories or [])
@@ -82,6 +93,16 @@ def init_shelf(
 
     manifest_path = root / MANIFEST_FILENAME
     if manifest_path.exists():
+        # Honour the declared contract; load_manifest raises ManifestError
+        # (manifest-invalid) on unparseable/schema-invalid, so init refuses
+        # instead of scaffolding onto a broken manifest.
+        existing = load_manifest(root)
+        docs_root_rel = existing.docs_root
+        index_rel = existing.index_path
+        # Only fill artefacts the manifest actually declares — an adopted
+        # shelf that omits a policy/ledger block never gets a stray stub.
+        policy_rel = existing.policy_path if "policy" in existing.raw else None
+        ledger_rel = existing.ledger_path if "ledger" in existing.raw else None
         track(MANIFEST_FILENAME, existed=True)
     else:
         manifest: dict[str, Any] = {
@@ -104,41 +125,46 @@ def init_shelf(
             manifest_path,
             yaml.safe_dump(manifest, sort_keys=False, allow_unicode=True),
         )
+        docs_root_rel = DEFAULT_DOCS_ROOT
+        index_rel = DEFAULT_INDEX_PATH
+        policy_rel = DEFAULT_POLICY_PATH
+        ledger_rel = DEFAULT_LEDGER_PATH if profile == "memory" else None
         track(MANIFEST_FILENAME, existed=False)
 
-    docs_root = root / DEFAULT_DOCS_ROOT
-    track(f"{DEFAULT_DOCS_ROOT}/", existed=docs_root.is_dir())
-    docs_root.mkdir(exist_ok=True)
+    docs_root = root / docs_root_rel
+    track(f"{docs_root_rel}/", existed=docs_root.is_dir())
+    docs_root.mkdir(parents=True, exist_ok=True)
     for category in categories:
         cat_dir = docs_root / category
-        track(f"{DEFAULT_DOCS_ROOT}/{category}/", existed=cat_dir.is_dir())
+        track(f"{docs_root_rel}/{category}/", existed=cat_dir.is_dir())
         cat_dir.mkdir(exist_ok=True)
 
-    index_path = root / DEFAULT_INDEX_PATH
+    index_path = root / index_rel
     if index_path.exists():
-        track(DEFAULT_INDEX_PATH, existed=True)
+        track(index_rel, existed=True)
     else:
         title = name or root.name
         body = f"# {title}\n\n{DATA_NOT_INSTRUCTIONS}\n"
         for category in categories:
             body += f"\n## {category}\n"
         atomic_write_text(index_path, body)
-        track(DEFAULT_INDEX_PATH, existed=False)
+        track(index_rel, existed=False)
 
-    policy_path = root / DEFAULT_POLICY_PATH
-    if policy_path.exists():
-        track(DEFAULT_POLICY_PATH, existed=True)
-    else:
-        atomic_write_text(policy_path, POLICY_STUB)
-        track(DEFAULT_POLICY_PATH, existed=False)
+    if policy_rel is not None:
+        policy_path = root / policy_rel
+        if policy_path.exists():
+            track(policy_rel, existed=True)
+        else:
+            atomic_write_text(policy_path, POLICY_STUB)
+            track(policy_rel, existed=False)
 
-    if profile == "memory":
-        ledger_path = root / DEFAULT_LEDGER_PATH
+    if ledger_rel is not None:
+        ledger_path = root / ledger_rel
         if ledger_path.exists():
-            track(DEFAULT_LEDGER_PATH, existed=True)
+            track(ledger_rel, existed=True)
         else:
             atomic_write_text(ledger_path, "\t".join(LEDGER_HEADER) + "\n")
-            track(DEFAULT_LEDGER_PATH, existed=False)
+            track(ledger_rel, existed=False)
 
     gitignore_path = root / ".gitignore"
     if gitignore_path.exists():

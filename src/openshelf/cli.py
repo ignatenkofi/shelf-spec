@@ -34,13 +34,19 @@ def _print_json(payload: dict) -> None:
 
 def _cmd_init(args: argparse.Namespace) -> int:
     categories = [c.strip() for c in (args.categories or "").split(",") if c.strip()]
-    payload = init_shelf(
-        _resolve_root(args.path),
-        name=args.name,
-        mode=args.mode,
-        profile=args.profile,
-        categories=categories,
-    )
+    try:
+        payload = init_shelf(
+            _resolve_root(args.path),
+            name=args.name,
+            mode=args.mode,
+            profile=args.profile,
+            categories=categories,
+        )
+    except ManifestError as exc:
+        # An existing shelf.yml that fails the schema gate: refuse rather than
+        # scaffold onto a broken contract (same exit code as validate/info).
+        print(f"config-error ({exc.rule}): {exc.detail}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
     if args.json:
         _print_json(payload)
     else:
