@@ -71,7 +71,10 @@ Rules:
   docs root is a category, and documents MAY live directly in the docs root
   (their category is then the docs root itself).
 - Non-Markdown sidecar directories (e.g. compressed PDF originals) MAY
-  exist when declared in `extra_dirs`.
+  exist when declared in `extra_dirs`. A declared sidecar directory is
+  exempt from `category-undeclared` and `orphaned-split-dir`; a declared
+  directory that is absent on disk yields an `extra-dir-missing` info
+  finding (section 9.1).
 - Client-specific adapters (`CLAUDE.md`, skills, prompts) are ALLOWED at
   the root; this spec does not constrain their content, but see section 8
   for the rules they historically carried that now live here.
@@ -354,7 +357,7 @@ error:
 - `docs-root-missing` — `docs_root` does not exist.
 - `category-undeclared` — a category directory exists that is not in the
   explicitly declared `categories` (only fires when `categories` is
-  declared and non-empty).
+  declared and non-empty; a directory listed in `extra_dirs` is exempt).
 - `ledger-malformed` — memory profile: the ledger exists but its header
   or rows violate section 4.4.
 - `episode-frontmatter-missing` — memory profile: a document has no
@@ -362,6 +365,10 @@ error:
 - `episode-frontmatter-invalid` — memory profile: frontmatter present but
   violates section 5.2 (missing required field, `id` != stem, unknown
   `kind`, non-integer `approx_tokens`).
+- `episode-sections-missing` — memory profile: an episode is missing a
+  required H2 section for its `kind` (section 5.3): `## Digest` for every
+  kind, `## Decisions` for `topic`, `## Timeline` + `## Open threads` for
+  `session`, or any non-Digest body section for `research`.
 - `index-hand-edited` — `generated_by: docshelf-mcp` but the generator
   footer marker is absent.
 
@@ -370,7 +377,8 @@ warning:
 - `stale-meta-entry` — `.meta.json` key with no matching file.
 - `corrupt-meta` — `.meta.json` is not valid JSON.
 - `orphaned-split-dir` — split directory with no parent document (only on
-  shelves with `generated_by: docshelf-mcp` — section 4.3).
+  shelves with `generated_by: docshelf-mcp` — section 4.3; a directory
+  listed in `extra_dirs` is exempt).
 - `split-out-of-sync` — split sections violate the `NNN-` contiguous
   numbering contract of section 4.3 (same scoping as above).
 - `duplicate-title` — two documents in one category share a title.
@@ -386,6 +394,8 @@ info:
 
 - `empty-category` — a category directory (or a declared category)
   without documents.
+- `extra-dir-missing` — a directory declared in `extra_dirs` does not
+  exist on disk.
 - `no-policy` — no policy file.
 - `no-ledger` — memory profile without a ledger.
 
