@@ -33,6 +33,14 @@ LEDGER_MODES = {"live", "import"}
 EPISODE_KINDS = {"topic", "research", "session"}
 EPISODE_REQUIRED_KEYS = ("id", "kind", "span", "tags", "approx_tokens")
 
+#: Required H2 sections per episode kind (SPEC 5.3). ``Digest`` is REQUIRED for
+#: every kind; ``research`` additionally needs at least one non-Digest section.
+EPISODE_REQUIRED_SECTIONS = {
+    "topic": ("Digest", "Decisions"),
+    "session": ("Digest", "Timeline", "Open threads"),
+    "research": ("Digest",),
+}
+
 _SPLIT_SECTION_RE = re.compile(r"^(\d{3,})-.+\.md$")
 _RAW_GITHUB_RE = re.compile(r"https://raw\.githubusercontent\.com/([^/\s)]+)/([^/\s)]+)/")
 _MD_RELATIVE_LINK_RE = re.compile(r"\]\((?!https?://|#)([^)\s]+\.md)\)")
@@ -166,15 +174,25 @@ def _scan_dir(directory: Path, *, top_level: bool) -> _Category:
     )
 
 
+def _extra_dir_set(manifest: Manifest) -> set[str]:
+    """Declared sidecar dirs (SPEC 2 ``extra_dirs``) as shelf-root-relative
+    posix strings, normalized so a trailing slash in the manifest still matches.
+    """
+    return {Path(d).as_posix() for d in manifest.extra_dirs}
+
+
 def _scan_categories(manifest: Manifest) -> list[_Category]:
     """Scan the docs root into categories.
 
     Category directories are the direct children of the docs root; documents
     directly in the docs root form the implicit root category (legal when
     ``categories`` is not declared — SPEC 2). Directories named after a
-    sibling document's stem are split-section dirs, not categories.
+    sibling document's stem are split-section dirs, not categories. A
+    directory declared in ``extra_dirs`` is a sidecar, not a category, so it
+    is skipped here (it never fires ``category-undeclared``/``empty-category``).
     """
     docs_root = manifest.docs_root_path
+    extra_dirs = _extra_dir_set(manifest)
     categories: list[_Category] = []
 
     root_cat = _scan_dir(docs_root, top_level=True)
@@ -184,6 +202,8 @@ def _scan_categories(manifest: Manifest) -> list[_Category]:
     for sub in sorted(p for p in docs_root.iterdir() if p.is_dir()):
         if sub.name in root_doc_stems:
             continue  # split dir of a root-level document
+        if sub.relative_to(manifest.shelf_root).as_posix() in extra_dirs:
+            continue  # declared sidecar directory, not a category
         categories.append(_scan_dir(sub, top_level=False))
     return categories
 
@@ -216,6 +236,8 @@ def _collect_findings(manifest: Manifest) -> list[Finding]:
                 "no action needed",
             )
         )
+
+    _check_extra_dirs(manifest, findings)
 
     docs_root = manifest.docs_root_path
     if not docs_root.is_dir():
@@ -300,7 +322,9 @@ def _check_category(manifest: Manifest, cat: _Category, findings: list[Finding])
             meta = loaded if isinstance(loaded, dict) else {}
             if not isinstance(loaded, dict):
                 raise json.JSONDecodeError("not an object", "", 0)
-        except json.JSONDecodeError:
+        # An unreadable (OSError) or non-UTF-8 (UnicodeDecodeError) .meta.json
+        # is drift, not a crash: report it like malformed JSON and move on.
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             findings.append(
                 Finding(
                     "corrupt-meta", "warning", rel(meta_path),
@@ -323,7 +347,10 @@ def _check_category(manifest: Manifest, cat: _Category, findings: list[Finding])
     # layout (SPEC 4.3/9.1); shelves with an external/manual index generator
     # own their large-document layout, so the rules do not apply there.
     if manifest.index_generated_by == "docshelf-mcp":
+        extra_dirs = _extra_dir_set(manifest)
         for orphan in cat.orphan_dirs:
+            if rel(orphan) in extra_dirs:
+                continue  # declared sidecar dir under a category — intentional
             findings.append(
                 Finding(
                     "orphaned-split-dir", "warning", rel(orphan),
@@ -377,6 +404,15 @@ def _check_category(manifest: Manifest, cat: _Category, findings: list[Finding])
                 )
 
 
+def _h2_sections(text: str) -> set[str]:
+    """Lower-cased H2 heading titles present in an episode body (SPEC 5.3).
+
+    A superset detection (code fences aside) only makes the check more
+    lenient, so it never fails an episode that genuinely carries the section.
+    """
+    return {line[3:].strip().lower() for line in text.splitlines() if line.startswith("## ")}
+
+
 def _check_episode(manifest: Manifest, doc: Path, findings: list[Finding]) -> None:
     root = manifest.shelf_root
     path = doc.relative_to(root).as_posix()
@@ -419,6 +455,46 @@ def _check_episode(manifest: Manifest, doc: Path, findings: list[Finding]) -> No
             )
         )
 
+    # Required sections per kind (SPEC 5.3). Only checked when the kind is
+    # known — an unknown/absent kind already fails frontmatter validation and
+    # carries no section contract to enforce.
+    kind = fm.get("kind")
+    if kind in EPISODE_REQUIRED_SECTIONS:
+        present = _h2_sections(text)
+        missing = [
+            f"## {name}" for name in EPISODE_REQUIRED_SECTIONS[kind] if name.lower() not in present
+        ]
+        if kind == "research" and not present - {"digest"}:
+            missing.append("at least one body section besides ## Digest")
+        if missing:
+            findings.append(
+                Finding(
+                    "episode-sections-missing", "error", path,
+                    "missing required section(s): " + ", ".join(missing),
+                    "add the required H2 section(s) per SPEC.md section 5.3",
+                )
+            )
+
+
+def _check_extra_dirs(manifest: Manifest, findings: list[Finding]) -> None:
+    """Flag declared ``extra_dirs`` that do not exist on disk (SPEC 2).
+
+    A declared sidecar dir suppresses category-undeclared/orphaned-split-dir
+    for that path; the flip side is that a typo would legitimize nothing and
+    rot silently, so a missing declaration is surfaced as an info finding.
+    """
+    root = manifest.shelf_root
+    for entry in manifest.extra_dirs:
+        rel = Path(entry).as_posix()
+        if not (root / entry).is_dir():
+            findings.append(
+                Finding(
+                    "extra-dir-missing", "info", rel,
+                    f"declared extra_dir '{rel}' does not exist on disk",
+                    "create the directory or drop it from extra_dirs",
+                )
+            )
+
 
 def _check_ledger_policy(manifest: Manifest, findings: list[Finding]) -> None:
     ledger = manifest.shelf_root / manifest.ledger_path
@@ -447,7 +523,10 @@ def _check_ledger_policy(manifest: Manifest, findings: list[Finding]) -> None:
 def _check_ledger_file(manifest: Manifest, ledger: Path, findings: list[Finding]) -> None:
     path = ledger.relative_to(manifest.shelf_root).as_posix()
     try:
-        lines = ledger.read_text(encoding="utf-8").splitlines()
+        # errors="replace" keeps a non-UTF-8 ledger from aborting the run;
+        # the substituted U+FFFD then trips the header/column checks below,
+        # surfacing as a normal ledger-malformed finding instead of a crash.
+        lines = ledger.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return
     problems: list[str] = []
@@ -594,7 +673,7 @@ def _check_docshelf_config(manifest: Manifest, findings: list[Finding]) -> None:
         return
     try:
         data = json.loads(docshelf_json.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return  # corrupt impl config is the implementation's problem, not the spec's
     if not isinstance(data, dict):
         return

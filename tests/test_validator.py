@@ -288,3 +288,104 @@ def test_agents_in_single_mode_flagged_reserved(tmp_path: Path) -> None:
     (tmp_path / "docs").mkdir()
     report = validate_shelf(tmp_path)
     assert "reserved-m1" in rules(report, "info")
+
+
+# ------------------------------------------------- undecodable readers (#6)
+
+
+def test_non_utf8_ledger_is_finding_not_crash(memshelf_like: Path) -> None:
+    # A non-UTF-8 ledger must degrade to a finding, not abort the run.
+    (memshelf_like / "ledger.tsv").write_bytes(b"\xff\xfe not utf-8 at all\n")
+    report = validate_shelf(memshelf_like)
+    assert report["status"] == "ok"
+    assert "ledger-malformed" in rules(report, "error")
+
+
+def test_non_utf8_meta_is_finding_not_crash(memshelf_like: Path) -> None:
+    (memshelf_like / "docs" / "topics" / ".meta.json").write_bytes(b"\xff\xfe\x00\x01")
+    report = validate_shelf(memshelf_like)
+    assert report["status"] == "ok"
+    assert "corrupt-meta" in rules(report, "warning")
+
+
+# ------------------------------------------------------ extra_dirs (#7)
+
+
+def test_extra_dir_under_docs_root_suppresses_category_undeclared(memshelf_like: Path) -> None:
+    sidecar = memshelf_like / "docs" / "attachments"
+    sidecar.mkdir()
+    (sidecar / "diagram.bin").write_bytes(b"\x00\x01\x02")
+
+    # Undeclared, a sidecar directory under docs_root with declared categories
+    # is a category-undeclared error.
+    report = validate_shelf(memshelf_like)
+    assert "category-undeclared" in rules(report, "error")
+
+    # Declaring it in extra_dirs legitimizes it — the shelf validates clean.
+    manifest = memshelf_like / "shelf.yml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8") + "extra_dirs:\n  - docs/attachments\n",
+        encoding="utf-8",
+    )
+    report = validate_shelf(memshelf_like)
+    assert "category-undeclared" not in rules(report)
+    assert report["verdict"] == "valid"
+
+
+def test_missing_extra_dir_is_info(memshelf_like: Path) -> None:
+    manifest = memshelf_like / "shelf.yml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8") + "extra_dirs:\n  - docs/nope\n",
+        encoding="utf-8",
+    )
+    report = validate_shelf(memshelf_like)
+    assert "extra-dir-missing" in rules(report, "info")
+    assert report["verdict"] == "valid"
+
+
+# ------------------------------------------- required episode sections (#8)
+
+
+def _write_episode(episode: Path, kind: str, body: str) -> None:
+    stem = episode.stem
+    episode.write_text(
+        f"# {stem}\n\n---\n"
+        f"id: {stem}\nkind: {kind}\nspan: 2026-01-10\n"
+        f"tags: [fixture]\napprox_tokens: 10\n---\n\n{body}",
+        encoding="utf-8",
+    )
+
+
+def test_episode_missing_digest_is_error(memshelf_like: Path) -> None:
+    episode = memshelf_like / "docs" / "topics" / "2026-01-10-fixture-topic.md"
+    _write_episode(episode, "topic", "## Decisions\n\n- x — y\n")
+    report = validate_shelf(memshelf_like)
+    assert "episode-sections-missing" in rules(report, "error")
+
+
+def test_topic_missing_decisions_is_error(memshelf_like: Path) -> None:
+    episode = memshelf_like / "docs" / "topics" / "2026-01-10-fixture-topic.md"
+    _write_episode(episode, "topic", "## Digest\n\nonly a digest\n")
+    report = validate_shelf(memshelf_like)
+    assert "episode-sections-missing" in rules(report, "error")
+
+
+def test_session_missing_open_threads_is_error(memshelf_like: Path) -> None:
+    episode = memshelf_like / "docs" / "sessions" / "2026-01-12-fixture-session.md"
+    _write_episode(episode, "session", "## Digest\n\nx\n\n## Timeline\n\n- a\n")
+    report = validate_shelf(memshelf_like)
+    missing = [f for f in report["findings"] if f["rule"] == "episode-sections-missing"]
+    assert missing and "Open threads" in missing[0]["detail"]
+
+
+def test_research_without_body_section_is_error(memshelf_like: Path) -> None:
+    episode = memshelf_like / "docs" / "research" / "2026-01-11-fixture-research.md"
+    _write_episode(episode, "research", "## Digest\n\nonly a digest, no findings\n")
+    report = validate_shelf(memshelf_like)
+    assert "episode-sections-missing" in rules(report, "error")
+
+
+def test_complete_episode_has_no_sections_finding(memshelf_like: Path) -> None:
+    # The shipped fixtures already carry every required section.
+    report = validate_shelf(memshelf_like)
+    assert "episode-sections-missing" not in rules(report)
