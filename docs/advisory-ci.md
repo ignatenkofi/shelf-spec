@@ -26,11 +26,36 @@ jobs:
           python-version: "3.12"
 
       - name: Install openshelf
-        run: pip install "git+https://github.com/ignatenkofi/openshelf.git"
+        run: pip install "git+https://x-access-token:${{ secrets.OPENSHELF_TOKEN }}@github.com/ignatenkofi/openshelf.git"
 
       - name: Validate shelf against shelf-spec
         run: openshelf validate --ci .
 ```
+
+## While this repo is private, the install step needs a token
+
+`openshelf` is a private repository, and a workflow's default `GITHUB_TOKEN`
+is scoped to **its own** repo — it cannot read this one. A plain
+`pip install "git+https://github.com/ignatenkofi/openshelf.git"` from another
+repository's Actions therefore fails at the install step.
+
+This interacts badly with `continue-on-error: true`: the job goes orange, the
+validate step never runs, and the shelf looks covered while **nothing is
+being validated**. A silent no-op is worse than no stage at all, so wire the
+token before adding the job, not after.
+
+Two working routes:
+
+1. **Fine-grained PAT** (works today, owner-gated — a PAT is a credential):
+   Contents:read on `openshelf` only, saved as the `OPENSHELF_TOKEN` secret
+   in *each* consuming shelf repo. That is the form shown above.
+2. **Wait for PyPI** — once the package publishes, the step collapses to
+   `pip install openshelf` with no secret anywhere. Publishing is gated on
+   the final-name decision (#3), so this is the cleaner end state but not
+   available yet.
+
+If neither is in place, hold off on the stage: an honest missing check beats
+a green-looking one that never ran.
 
 Exit codes: `0` conforms (warnings allowed), `1` spec violations, `2`
 config-error (no or invalid `shelf.yml`). The `--ci` flag prints the full
