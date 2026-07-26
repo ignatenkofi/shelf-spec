@@ -27,7 +27,7 @@ def test_example_validates(example) -> None:
 
 def test_packaged_schema_matches_canonical() -> None:
     """The engine must load the same schema the spec publishes."""
-    from openshelf.engine.manifest import load_schema
+    from shelf_spec.engine.manifest import load_schema
 
     canonical = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
     assert load_schema() == canonical

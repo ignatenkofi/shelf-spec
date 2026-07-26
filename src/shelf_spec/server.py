@@ -29,9 +29,9 @@ from typing import Annotated
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
-from openshelf import __version__
-from openshelf.config import default_shelf_root
-from openshelf.engine import ManifestError, init_shelf, shelf_info, validate_shelf
+from shelf_spec import __version__
+from shelf_spec.config import default_shelf_root
+from shelf_spec.engine import ManifestError, init_shelf, shelf_info, validate_shelf
 
 __all__ = ["mcp", "main"]
 
@@ -66,21 +66,21 @@ def _error_response(exc: Exception, tool: str) -> str:
 _ShelfPathInit = Annotated[
     str | None,
     Field(
-        description="Shelf root to scaffold. Defaults to $OPENSHELF_ROOT or the "
+        description="Shelf root to scaffold. Defaults to $SHELF_SPEC_ROOT or the "
         "server's working directory.",
     ),
 ]
 _ShelfPathValidate = Annotated[
     str | None,
     Field(
-        description="Shelf root to validate. Defaults to $OPENSHELF_ROOT or the "
+        description="Shelf root to validate. Defaults to $SHELF_SPEC_ROOT or the "
         "server's working directory.",
     ),
 ]
 _ShelfPathInfo = Annotated[
     str | None,
     Field(
-        description="Shelf root to summarize. Defaults to $OPENSHELF_ROOT or the "
+        description="Shelf root to summarize. Defaults to $SHELF_SPEC_ROOT or the "
         "server's working directory.",
     ),
 ]
@@ -207,7 +207,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--shelf",
         default="",
-        help="Default shelf root (sets OPENSHELF_ROOT before starting).",
+        help="Default shelf root (sets SHELF_SPEC_ROOT before starting).",
     )
     return parser
 
@@ -216,7 +216,7 @@ def main(argv: list[str] | None = None) -> None:
     """Entry point for the stdio MCP server (also: ``openshelf serve``)."""
     args = _build_parser().parse_args(argv)
     if args.shelf:
-        os.environ["OPENSHELF_ROOT"] = args.shelf
+        os.environ["SHELF_SPEC_ROOT"] = args.shelf
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )

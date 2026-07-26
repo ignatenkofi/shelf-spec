@@ -17,7 +17,7 @@ from typing import Any
 
 import yaml
 
-from openshelf.engine.manifest import Manifest, ManifestError, load_manifest
+from shelf_spec.engine.manifest import Manifest, ManifestError, load_manifest
 
 __all__ = ["Finding", "validate_shelf", "parse_frontmatter"]
 

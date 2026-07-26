@@ -11,8 +11,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from openshelf.engine.manifest import load_manifest
-from openshelf.engine.validator import _scan_categories
+from shelf_spec.engine.manifest import load_manifest
+from shelf_spec.engine.validator import _scan_categories
 
 __all__ = ["shelf_info"]
 

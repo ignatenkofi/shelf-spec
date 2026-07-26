@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/ignatenkofi/openshelf/main/spec/shelf.schema.json",
-  "title": "shelf.yml — openshelf shelf manifest (shelf-spec v0)",
-  "description": "Manifest of an openshelf shelf. A manifest that is missing, unparseable, or fails this schema is a config-error: no operation runs against the shelf before the manifest validates. Fields reserved for M1 (agents, provenance) are accepted by the schema in v0 and ignored by single-mode tooling.",
+  "$id": "https://raw.githubusercontent.com/ignatenkofi/shelf-spec/main/spec/shelf.schema.json",
+  "title": "shelf.yml — shelf-spec shelf manifest (v0)",
+  "description": "Manifest of a shelf-spec shelf. A manifest that is missing, unparseable, or fails this schema is a config-error: no operation runs against the shelf before the manifest validates. Fields reserved for M1 (agents, provenance) are accepted by the schema in v0 and ignored by single-mode tooling.",
   "type": "object",
   "required": ["spec_version", "mode"],
   "additionalProperties": false,

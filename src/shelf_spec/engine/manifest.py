@@ -62,7 +62,7 @@ def load_schema() -> dict[str, Any]:
     """
     candidates = []
     try:
-        packaged = resources.files("openshelf").joinpath("spec/shelf.schema.json")
+        packaged = resources.files("shelf_spec").joinpath("spec/shelf.schema.json")
         if packaged.is_file():
             candidates.append(packaged.read_text(encoding="utf-8"))
     except (OSError, TypeError):  # pragma: no cover - packaging edge

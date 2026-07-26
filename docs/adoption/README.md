@@ -16,7 +16,7 @@ clones via the external-manifest mode, which needs no write access to the
 shelf:
 
 ```bash
-openshelf validate --ci --manifest docs/adoption/<shelf>.shelf.yml /path/to/<shelf>
+shelf-spec validate --ci --manifest docs/adoption/<shelf>.shelf.yml /path/to/<shelf>
 ```
 
 ## Status: drafted, not yet applied
@@ -28,7 +28,7 @@ the candidates (they must not live only in a session handoff). To apply:
 
 1. Copy the candidate to the shelf root as `shelf.yml`
    (drop the `<shelf>.` prefix).
-2. Run `openshelf validate --ci .` in the shelf root — expect exit 0.
+2. Run `shelf-spec validate --ci .` in the shelf root — expect exit 0.
 3. Commit; optionally add the advisory CI stage from
    [`../advisory-ci.md`](../advisory-ci.md) in the same change.
 

@@ -1,4 +1,4 @@
-# openshelf
+# shelf-spec
 
 **shelf-spec** — a portable, vendor-neutral memory format for AI agents —
 plus a thin validator/scaffolder around it.
@@ -11,7 +11,7 @@ shelf; migration between vendors is `git clone`. The product is the
 [docshelf-mcp](https://github.com/ignatenkofi/docshelf-mcp).
 
 Status: **v0 (draft, descriptive)** — the spec fixes what already works on
-live shelves. The working name `openshelf` is not final (owner gate before
+live shelves. Final name: `shelf-spec` (decided 2026-07-26, ADR 0007; before
 the production repo).
 
 ## What is in this repo
@@ -19,7 +19,7 @@ the production repo).
 - `spec/SPEC.md` — shelf-spec v0 (RFC 2119).
 - `spec/shelf.schema.json` — JSON Schema (draft 2020-12) for `shelf.yml`.
 - `spec/examples/` — example manifests (memory, document, reserved multi).
-- `src/openshelf/` — engine (manifest loader, validator, scaffolder, info)
+- `src/shelf_spec/` — engine (manifest loader, validator, scaffolder, info)
   with two thin transports: an MCP server and a CLI.
 - `docs/advisory-ci.md` — drop-in advisory CI stage for shelf repos.
 
@@ -32,14 +32,14 @@ pip install -e '.[dev]'
 ## CLI
 
 ```bash
-openshelf init PATH --name "My shelf" --profile memory --categories topics,research,sessions
-openshelf validate [PATH]              # human-readable report
-openshelf validate --ci [PATH]         # machine JSON on stdout, exit 0/1/2
-openshelf validate --json [PATH]       # JSON report
-openshelf validate --manifest CANDIDATE.yml PATH   # validate a tree against
+shelf-spec init PATH --name "My shelf" --profile memory --categories topics,research,sessions
+shelf-spec validate [PATH]              # human-readable report
+shelf-spec validate --ci [PATH]         # machine JSON on stdout, exit 0/1/2
+shelf-spec validate --json [PATH]       # JSON report
+shelf-spec validate --manifest CANDIDATE.yml PATH   # validate a tree against
                                        # an external manifest without touching it
-openshelf info [PATH]                  # manifest + index summary for a client
-openshelf serve                        # MCP server on stdio
+shelf-spec info [PATH]                  # manifest + index summary for a client
+shelf-spec serve                        # MCP server on stdio
 ```
 
 Exit codes: `0` — shelf conforms (warnings allowed; `--strict` promotes
@@ -47,7 +47,7 @@ warnings to failure), `1` — spec violations (error findings), `2` —
 config-error (manifest missing / unparseable / schema-invalid; checked
 before any rule).
 
-The default shelf root is `$OPENSHELF_ROOT`, falling back to the current
+The default shelf root is `$SHELF_SPEC_ROOT`, falling back to the current
 directory.
 
 ## MCP server
@@ -69,10 +69,10 @@ Client configuration (stdio):
 ```json
 {
   "mcpServers": {
-    "openshelf": {
-      "command": "openshelf",
+    "shelf-spec": {
+      "command": "shelf-spec",
       "args": ["serve"],
-      "env": { "OPENSHELF_ROOT": "/path/to/your/shelf" }
+      "env": { "SHELF_SPEC_ROOT": "/path/to/your/shelf" }
     }
   }
 }

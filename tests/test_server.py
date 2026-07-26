@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from openshelf.server import mcp
+from shelf_spec.server import mcp
 
 
 def _call(name: str, arguments: dict[str, Any]) -> dict[str, Any]:

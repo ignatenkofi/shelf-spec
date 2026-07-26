@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from openshelf.engine import ManifestError, init_shelf, validate_shelf
+from shelf_spec.engine import ManifestError, init_shelf, validate_shelf
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
