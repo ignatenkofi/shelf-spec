@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from openshelf.engine import ManifestError, shelf_info
+from shelf_spec.engine import ManifestError, shelf_info
 
 
 def test_info_on_memshelf_like(memshelf_like: Path) -> None:

@@ -1,4 +1,4 @@
-# ADR-индекс пакета 07-openshelf
+# ADR-индекс пакета 07 (shelf-spec, ранее openshelf)
 
 Все решения в статусе `proposed` до старта реализации (HANDOFF-паттерн полки).
 

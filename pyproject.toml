@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "openshelf"
+name = "shelf-spec"
 dynamic = ["version"]
 description = "shelf-spec: portable, vendor-neutral agent memory as a git repo of Markdown — spec, validator, thin MCP server and CLI."
 readme = "README.md"
@@ -41,22 +41,22 @@ dev = [
 ]
 
 [project.scripts]
-openshelf = "openshelf.cli:main"
+shelf-spec = "shelf_spec.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/ignatenkofi/openshelf"
-Repository = "https://github.com/ignatenkofi/openshelf"
+Homepage = "https://github.com/ignatenkofi/shelf-spec"
+Repository = "https://github.com/ignatenkofi/shelf-spec"
 
 [tool.hatch.version]
-path = "src/openshelf/__init__.py"
+path = "src/shelf_spec/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/openshelf"]
+packages = ["src/shelf_spec"]
 
 [tool.hatch.build.targets.wheel.force-include]
 # The canonical schema lives in spec/ (single source of truth); ship a copy
 # inside the wheel so the installed package can validate manifests offline.
-"spec/shelf.schema.json" = "openshelf/spec/shelf.schema.json"
+"spec/shelf.schema.json" = "shelf_spec/spec/shelf.schema.json"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -89,4 +89,4 @@ select = [
 ignore = ["E501"]  # line too long — handled by formatter
 
 [tool.ruff.lint.isort]
-known-first-party = ["openshelf"]
+known-first-party = ["shelf_spec"]

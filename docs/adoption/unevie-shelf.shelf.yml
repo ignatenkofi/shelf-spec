@@ -1,4 +1,4 @@
-# shelf.yml — openshelf manifest (shelf-spec v0)
+# shelf.yml — shelf-spec manifest (v0)
 # Adding this one file makes the existing shelf spec-conformant (mode:
 # single); nothing else migrates. .docshelf.json (an older version without
 # provider/index_style keys) stays valid — loaders default missing keys.

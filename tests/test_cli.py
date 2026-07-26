@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from openshelf.cli import main
+from shelf_spec.cli import main
 from tests.conftest import legacy_manifest
 
 

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from openshelf.engine.manifest import ManifestError, load_manifest, load_schema
+from shelf_spec.engine.manifest import ManifestError, load_manifest, load_schema
 from tests.conftest import legacy_manifest
 
 

@@ -1,4 +1,4 @@
-# Advisory CI stage for shelf repos — `openshelf validate --ci`
+# Advisory CI stage for shelf repos — `shelf-spec validate --ci`
 
 Drop-in GitHub Actions job for any shelf repository (memory or document).
 Advisory: `continue-on-error` keeps the shelf's own workflow green while
@@ -25,18 +25,18 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install openshelf
-        run: pip install "git+https://x-access-token:${{ secrets.OPENSHELF_TOKEN }}@github.com/ignatenkofi/openshelf.git"
+      - name: Install shelf-spec
+        run: pip install "git+https://x-access-token:${{ secrets.OPENSHELF_TOKEN }}@github.com/ignatenkofi/shelf-spec.git"
 
       - name: Validate shelf against shelf-spec
-        run: openshelf validate --ci .
+        run: shelf-spec validate --ci .
 ```
 
 ## While this repo is private, the install step needs a token
 
-`openshelf` is a private repository, and a workflow's default `GITHUB_TOKEN`
+`shelf-spec` is a private repository, and a workflow's default `GITHUB_TOKEN`
 is scoped to **its own** repo — it cannot read this one. A plain
-`pip install "git+https://github.com/ignatenkofi/openshelf.git"` from another
+`pip install "git+https://github.com/ignatenkofi/shelf-spec.git"` from another
 repository's Actions therefore fails at the install step.
 
 This interacts badly with `continue-on-error: true`: the job goes orange, the
@@ -47,10 +47,10 @@ token before adding the job, not after.
 Two working routes:
 
 1. **Fine-grained PAT** (works today, owner-gated — a PAT is a credential):
-   Contents:read on `openshelf` only, saved as the `OPENSHELF_TOKEN` secret
+   Contents:read on `shelf-spec` only, saved as the `SHELF_SPEC_TOKEN` secret
    in *each* consuming shelf repo. That is the form shown above.
 2. **Wait for PyPI** — once the package publishes, the step collapses to
-   `pip install openshelf` with no secret anywhere. Publishing is gated on
+   `pip install shelf-spec` with no secret anywhere. Publishing is gated on
    the final-name decision (#3), so this is the cleaner end state but not
    available yet.
 
@@ -65,5 +65,5 @@ For a shelf that does not yet commit its `shelf.yml`, validate against a
 candidate manifest kept elsewhere:
 
 ```bash
-openshelf validate --ci --manifest path/to/candidate.shelf.yml .
+shelf-spec validate --ci --manifest path/to/candidate.shelf.yml .
 ```

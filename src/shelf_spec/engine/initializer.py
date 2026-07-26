@@ -15,8 +15,8 @@ from typing import Any
 
 import yaml
 
-from openshelf.engine.fsutil import atomic_write_text
-from openshelf.engine.manifest import (
+from shelf_spec.engine.fsutil import atomic_write_text
+from shelf_spec.engine.manifest import (
     DEFAULT_DOCS_ROOT,
     DEFAULT_INDEX_PATH,
     DEFAULT_LEDGER_PATH,
@@ -24,7 +24,7 @@ from openshelf.engine.manifest import (
     MANIFEST_FILENAME,
     load_manifest,
 )
-from openshelf.engine.validator import LEDGER_HEADER
+from shelf_spec.engine.validator import LEDGER_HEADER
 
 __all__ = ["init_shelf"]
 
@@ -50,7 +50,7 @@ section 7). Suggested baseline:
 """
 
 GITIGNORE_STUB = """\
-# openshelf — local-only artefacts
+# shelf-spec — local-only artefacts
 .DS_Store
 *.swp
 __pycache__/

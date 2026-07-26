@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from openshelf.engine.validator import parse_frontmatter, validate_shelf
+from shelf_spec.engine.validator import parse_frontmatter, validate_shelf
 from tests.conftest import legacy_manifest
 
 

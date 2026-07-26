@@ -1,4 +1,4 @@
-"""``openshelf`` CLI — the same engine as the MCP server, second transport.
+"""``shelf-spec`` CLI — the same engine as the MCP server, second transport.
 
 Commands: ``init``, ``validate``, ``info``, ``serve``. Exit-code contract
 (SPEC.md 9.2, shared with the house verify tools): 0 = conforms (warnings
@@ -13,9 +13,9 @@ import json
 import sys
 from pathlib import Path
 
-from openshelf import __version__
-from openshelf.config import default_shelf_root
-from openshelf.engine import ManifestError, init_shelf, shelf_info, validate_shelf
+from shelf_spec import __version__
+from shelf_spec.config import default_shelf_root
+from shelf_spec.engine import ManifestError, init_shelf, shelf_info, validate_shelf
 
 __all__ = ["main"]
 
@@ -112,7 +112,7 @@ def _cmd_info(args: argparse.Namespace) -> int:
 
 
 def _cmd_serve(_args: argparse.Namespace) -> int:
-    from openshelf.server import main as server_main
+    from shelf_spec.server import main as server_main
 
     server_main([])
     return EXIT_OK
@@ -120,14 +120,14 @@ def _cmd_serve(_args: argparse.Namespace) -> int:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="openshelf",
+        prog="shelf-spec",
         description="shelf-spec tooling: scaffold, validate, and summarize shelves.",
     )
-    parser.add_argument("--version", action="version", version=f"openshelf {__version__}")
+    parser.add_argument("--version", action="version", version=f"shelf-spec {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_init = sub.add_parser("init", help="scaffold a spec-conformant shelf (idempotent)")
-    p_init.add_argument("path", nargs="?", default=None, help="shelf root (default: $OPENSHELF_ROOT or cwd)")
+    p_init.add_argument("path", nargs="?", default=None, help="shelf root (default: $SHELF_SPEC_ROOT or cwd)")
     p_init.add_argument("--name", default="", help="human-readable shelf name")
     p_init.add_argument("--mode", choices=["single", "multi"], default="single")
     p_init.add_argument("--profile", choices=["memory", "document"], default="document")
@@ -136,7 +136,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_init.set_defaults(func=_cmd_init)
 
     p_val = sub.add_parser("validate", help="lint a shelf against shelf-spec (exit 0/1/2)")
-    p_val.add_argument("path", nargs="?", default=None, help="shelf root (default: $OPENSHELF_ROOT or cwd)")
+    p_val.add_argument("path", nargs="?", default=None, help="shelf root (default: $SHELF_SPEC_ROOT or cwd)")
     p_val.add_argument(
         "--manifest",
         default=None,
@@ -150,7 +150,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_val.set_defaults(func=_cmd_validate)
 
     p_info = sub.add_parser("info", help="manifest + index summary for a client")
-    p_info.add_argument("path", nargs="?", default=None, help="shelf root (default: $OPENSHELF_ROOT or cwd)")
+    p_info.add_argument("path", nargs="?", default=None, help="shelf root (default: $SHELF_SPEC_ROOT or cwd)")
     p_info.add_argument("--json", action="store_true", help="machine-readable output")
     p_info.set_defaults(func=_cmd_info)
 
