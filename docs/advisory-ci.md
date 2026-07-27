@@ -26,7 +26,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install shelf-spec
-        run: pip install "git+https://x-access-token:${{ secrets.OPENSHELF_TOKEN }}@github.com/ignatenkofi/shelf-spec.git"
+        run: pip install "git+https://x-access-token:${{ secrets.SHELF_SPEC_TOKEN }}@github.com/ignatenkofi/shelf-spec.git"
 
       - name: Validate shelf against shelf-spec
         run: shelf-spec validate --ci .
