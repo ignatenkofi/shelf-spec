@@ -2,6 +2,8 @@
 
 ## Unreleased (M0)
 
+- Pinned the MCP SDK by major (`mcp>=1.2.0,<2`): mcp 2.0.0 removed
+  `mcp.server.fastmcp`, so fresh installs failed to import the server.
 - **Project renamed `openshelf` → `shelf-spec`** (2026-07-26, ADR 0007;
   closes the naming gate #3): package, console script, module
   `shelf_spec`, env `SHELF_SPEC_ROOT` (was `OPENSHELF_ROOT`), schema `$id`,
