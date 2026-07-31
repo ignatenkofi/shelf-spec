@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (M0)
+## 0.1.0 (M0)
 
 - Pinned the MCP SDK by major (`mcp>=1.2.0,<2`): mcp 2.0.0 removed
   `mcp.server.fastmcp`, so fresh installs failed to import the server.
