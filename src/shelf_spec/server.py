@@ -35,9 +35,9 @@ from shelf_spec.engine import ManifestError, init_shelf, shelf_info, validate_sh
 
 __all__ = ["mcp", "main"]
 
-logger = logging.getLogger("openshelf")
+logger = logging.getLogger("shelf_spec")
 
-mcp = FastMCP("openshelf")
+mcp = FastMCP("shelf-spec")
 
 
 def _resolve_root(shelf_path: str | None) -> Path:
@@ -200,10 +200,16 @@ def tool_shelf_info(shelf_path: _ShelfPathInfo = None) -> str:
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    # Пользовательский вход — `shelf-spec serve` (README, и он же в конфиге
+    # клиента); этот парсер виден только тому, кто зовёт модуль напрямую.
+    # Команды `shelf-spec-server` не существует: в [project.scripts] ровно
+    # одна запись, `shelf-spec`. Имя, которого нет, — тот же дефект, что и
+    # `openshelf` до него, поэтому prog называет реально работающий вызов.
     parser = argparse.ArgumentParser(
-        prog="openshelf-server", description="openshelf MCP server (stdio)"
+        prog="python -m shelf_spec.server",
+        description="shelf-spec MCP server (stdio); обычный вход — shelf-spec serve",
     )
-    parser.add_argument("--version", action="version", version=f"openshelf {__version__}")
+    parser.add_argument("--version", action="version", version=f"shelf-spec {__version__}")
     parser.add_argument(
         "--shelf",
         default="",
@@ -213,14 +219,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Entry point for the stdio MCP server (also: ``openshelf serve``)."""
+    """Entry point for the stdio MCP server (also: ``shelf-spec serve``)."""
     args = _build_parser().parse_args(argv)
     if args.shelf:
         os.environ["SHELF_SPEC_ROOT"] = args.shelf
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
     )
-    logger.info("Starting openshelf MCP server %s", __version__)
+    logger.info("Starting shelf-spec MCP server %s", __version__)
     mcp.run()
 
 
