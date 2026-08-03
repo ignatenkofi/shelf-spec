@@ -17,23 +17,31 @@ from shelf_spec.server import mcp
 
 
 def _call(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-    """Call a tool through FastMCP's validation path and parse the JSON reply."""
+    """Call a tool through the server's validation path and parse the JSON reply.
+
+    mcp 2.x returns a ``CallToolResult`` here; 1.x returned the content blocks
+    (sometimes wrapped in a tuple). Only the 2.x shape is handled — the pin is
+    ``mcp>=2.0.0,<3``, and accepting both would leave a branch no test covers.
+    """
     result = asyncio.run(mcp.call_tool(name, arguments))
-    blocks = result[0] if isinstance(result, tuple) else result
-    text = blocks[0].text  # type: ignore[union-attr]
+    assert not result.is_error, result.content
+    text = result.content[0].text  # type: ignore[union-attr]
     return json.loads(text)
 
 
 def test_input_schemas_are_flat() -> None:
+    # `input_schema`, not `inputSchema`: mcp 2.x renamed the Tool fields to
+    # snake_case. The flatness this test guards is a deliberate contract —
+    # clients get named arguments, not a nested `params` object.
     tools = {t.name: t for t in asyncio.run(mcp.list_tools())}
     assert set(tools) == {"shelf_init", "shelf_validate", "shelf_info"}
     for tool in tools.values():
-        properties = tool.inputSchema["properties"]
+        properties = tool.input_schema["properties"]
         assert "params" not in properties, f"{tool.name} nests input under 'params'"
         assert "shelf_path" in properties
-    assert "manifest_path" in tools["shelf_validate"].inputSchema["properties"]
+    assert "manifest_path" in tools["shelf_validate"].input_schema["properties"]
     assert {"name", "mode", "profile", "categories"} <= set(
-        tools["shelf_init"].inputSchema["properties"]
+        tools["shelf_init"].input_schema["properties"]
     )
 
 

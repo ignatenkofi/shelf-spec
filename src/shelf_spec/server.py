@@ -26,7 +26,7 @@ import os
 from pathlib import Path
 from typing import Annotated
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from pydantic import Field
 
 from shelf_spec import __version__
@@ -37,7 +37,7 @@ __all__ = ["mcp", "main"]
 
 logger = logging.getLogger("shelf_spec")
 
-mcp = FastMCP("shelf-spec")
+mcp = MCPServer("shelf-spec")
 
 
 def _resolve_root(shelf_path: str | None) -> Path:
