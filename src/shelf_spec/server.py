@@ -200,8 +200,14 @@ def tool_shelf_info(shelf_path: _ShelfPathInfo = None) -> str:
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    # Пользовательский вход — `shelf-spec serve` (README, и он же в конфиге
+    # клиента); этот парсер виден только тому, кто зовёт модуль напрямую.
+    # Команды `shelf-spec-server` не существует: в [project.scripts] ровно
+    # одна запись, `shelf-spec`. Имя, которого нет, — тот же дефект, что и
+    # `openshelf` до него, поэтому prog называет реально работающий вызов.
     parser = argparse.ArgumentParser(
-        prog="shelf-spec-server", description="shelf-spec MCP server (stdio)"
+        prog="python -m shelf_spec.server",
+        description="shelf-spec MCP server (stdio); обычный вход — shelf-spec serve",
     )
     parser.add_argument("--version", action="version", version=f"shelf-spec {__version__}")
     parser.add_argument(
