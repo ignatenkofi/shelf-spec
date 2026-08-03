@@ -1,4 +1,4 @@
-"""FastMCP server — thin transport over the engine (stdio).
+"""MCP server — thin transport over the engine (stdio).
 
 Three tools, named per the spec surface (no vendor prefix):
 ``shelf_init`` (write, local), ``shelf_validate`` (read), ``shelf_info``
@@ -6,8 +6,8 @@ Three tools, named per the spec surface (no vendor prefix):
 it is unit-testable without MCP (pattern: docshelf-mcp server/tools split).
 
 Tools take **flat keyword arguments** (``{"shelf_path": ...}`` in
-``tools/call``), the argument style most MCP servers expose. FastMCP builds
-the input schema straight from the signatures; per-parameter constraints
+``tools/call``), the argument style most MCP servers expose. ``MCPServer``
+builds the input schema straight from the signatures; per-parameter constraints
 live in ``Annotated[..., Field(...)]`` metadata. Do not wrap parameters in
 a single pydantic model — that nests everything under one ``params`` key
 and breaks hand-written clients.
@@ -122,7 +122,7 @@ def tool_shelf_init(
     categories: Annotated[
         list[str],
         Field(description="Categories to pre-create under docs/ and declare in shelf.yml."),
-    ] = [],  # noqa: B006 — read-only default; FastMCP validates a fresh list per call
+    ] = [],  # noqa: B006 — read-only default; the server validates a fresh list per call
 ) -> str:
     """Create a shelf skeleton: shelf.yml, docs root + categories, POLICY.md
     stub, minimal INDEX.md, .gitignore, and (memory profile) a ledger header.

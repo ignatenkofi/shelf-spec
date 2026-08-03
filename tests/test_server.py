@@ -1,7 +1,7 @@
 """MCP surface: tools accept flat keyword arguments (no 'params' envelope).
 
 Regression guard for the wrapped-model footgun: when a tool takes a single
-pydantic model argument, FastMCP nests the whole input under one key and a
+pydantic model argument, the server nests the whole input under one key and a
 hand-written client calling ``{"shelf_path": ...}`` gets a pydantic
 "Field required" error back as tool text. The signatures must stay flat.
 """
