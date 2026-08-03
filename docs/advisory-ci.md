@@ -54,9 +54,19 @@ and this page was not updated. Four consuming repositories are still carrying
 a `SHELF_SPEC_TOKEN` secret they no longer need for this purpose.
 
 The lesson is the one this page is otherwise about: a stale instruction keeps
-a credential alive. A token that exists is a token that can leak, expire, or
-be over-scoped, and the cheapest version of all three problems is not issuing
-it.
+a credential alive. A token that exists is a token that can leak,
+expire, or be over-scoped, and the cheapest version of all three problems is
+not issuing it.
+
+**State of the consumers as of 2026-08-04.** `sqst-memshelf`, `homelab-shelf`
+and `unevie-shelf` still install from git with `SHELF_SPEC_TOKEN` and the
+`HAVE_TOKEN` gate — they were wired that way hours before this section was
+corrected. Nothing is broken there; the gate does its job. Switching them to
+`pip install shelf-spec` is a deliberate choice with a real trade-off
+(validate against the published release, or against tip), so it belongs to
+whoever maintains those shelves, not to this page. Until then, read the job
+above as what a *new* shelf should copy, not as a description of what the
+existing three do.
 
 ### When you still want the git route
 
