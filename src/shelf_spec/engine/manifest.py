@@ -168,7 +168,7 @@ def load_manifest(shelf_root: Path | str, manifest_path: Path | str | None = Non
         raise ManifestError(
             "manifest-missing",
             f"no manifest at {path}; a shelf must have a shelf.yml "
-            "(run 'openshelf init' to scaffold one, or pass --manifest)",
+            "(run 'shelf-spec init' to scaffold one, or pass --manifest)",
         )
 
     try:
