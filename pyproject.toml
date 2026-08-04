@@ -33,9 +33,9 @@ dependencies = [
     # Потолок по мажору: следующий мажор получает порт и прогон
     # tests/test_stdio_protocol.py, а не расширенный диапазон.
     "mcp>=2.0.0,<3",
-    "pydantic>=2.6",
-    "pyyaml>=6.0",
-    "jsonschema>=4.21",
+    "pydantic>=2.6,<3",
+    "pyyaml>=6.0,<7",
+    "jsonschema>=4.21,<5",
 ]
 
 [project.optional-dependencies]
