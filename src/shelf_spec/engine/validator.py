@@ -33,6 +33,11 @@ LEDGER_MODES = {"live", "import"}
 EPISODE_KINDS = {"topic", "research", "session"}
 EPISODE_REQUIRED_KEYS = ("id", "kind", "span", "tags", "approx_tokens")
 
+#: Profiles whose rule sets this validator revision implements (SPEC 2.1).
+#: The set is open across spec revisions: an unknown profile downgrades to
+#: universal rules plus a ``profile-unknown`` warning, never a config-error.
+KNOWN_PROFILES = {"memory", "document"}
+
 #: Required H2 sections per episode kind (SPEC 5.3). ``Digest`` is REQUIRED for
 #: every kind; ``research`` additionally needs at least one non-Digest section.
 EPISODE_REQUIRED_SECTIONS = {
@@ -237,6 +242,21 @@ def _collect_findings(manifest: Manifest) -> list[Finding]:
             )
         )
 
+    # Forward compatibility (SPEC 2.1): a profile from a newer spec revision
+    # is not this validator's to judge — universal rules still run below;
+    # profile-specific branches key on the known profile names and thus skip.
+    if manifest.profile not in KNOWN_PROFILES:
+        findings.append(
+            Finding(
+                "profile-unknown", "warning", "shelf.yml",
+                f"profile '{manifest.profile}' is not known to this validator "
+                f"(known: {', '.join(sorted(KNOWN_PROFILES))}) — "
+                "profile-specific rules were skipped",
+                "run a validator built for this profile's spec revision; "
+                "--strict treats this warning as a failure",
+            )
+        )
+
     _check_extra_dirs(manifest, findings)
 
     docs_root = manifest.docs_root_path
@@ -438,8 +458,11 @@ def _check_episode(manifest: Manifest, doc: Path, findings: list[Finding]) -> No
             problems.append(f"missing required field '{key}'")
     if "id" in fm and str(fm["id"]) != doc.stem:
         problems.append(f"id '{fm['id']}' does not equal the filename stem '{doc.stem}'")
-    if "kind" in fm and fm["kind"] not in EPISODE_KINDS:
-        problems.append(f"kind '{fm['kind']}' is not one of {sorted(EPISODE_KINDS)}")
+    if "kind" in fm and fm["kind"] is None:
+        # A present-but-empty kind is malformed frontmatter, not a value from
+        # a newer spec revision — it stays an error, unlike the unknown-kind
+        # warning below.
+        problems.append("kind is empty")
     if "approx_tokens" in fm and not isinstance(fm["approx_tokens"], int):
         problems.append("approx_tokens is not an integer")
     if "tags" in fm and not isinstance(fm["tags"], list):
@@ -455,10 +478,21 @@ def _check_episode(manifest: Manifest, doc: Path, findings: list[Finding]) -> No
             )
         )
 
-    # Required sections per kind (SPEC 5.3). Only checked when the kind is
-    # known — an unknown/absent kind already fails frontmatter validation and
-    # carries no section contract to enforce.
+    # Forward compatibility (SPEC 2.1/5.2): a kind from a newer spec revision
+    # is a warning, not an error — its section contract is unknown here, so
+    # nothing below enforces one.
     kind = fm.get("kind")
+    if "kind" in fm and kind is not None and kind not in EPISODE_KINDS:
+        findings.append(
+            Finding(
+                "episode-kind-unknown", "warning", path,
+                f"kind '{kind}' is not one of {sorted(EPISODE_KINDS)} — "
+                "possibly from a newer spec revision; its section contract "
+                "is not enforced by this validator",
+                "use a known kind, or run a validator that knows this kind; "
+                "--strict treats this warning as a failure",
+            )
+        )
     if kind in EPISODE_REQUIRED_SECTIONS:
         present = _h2_sections(text)
         missing = [

@@ -85,12 +85,14 @@ def test_episode_id_mismatch_is_error(memshelf_like: Path) -> None:
     assert "episode-frontmatter-invalid" in rules(report, "error")
 
 
-def test_episode_bad_kind_is_error(memshelf_like: Path) -> None:
+def test_episode_empty_kind_is_error(memshelf_like: Path) -> None:
+    """``kind:`` with no value is malformed frontmatter, not forward-compat."""
     episode = memshelf_like / "docs" / "topics" / "2026-01-10-fixture-topic.md"
-    text = episode.read_text(encoding="utf-8").replace("kind: topic", "kind: banana")
+    text = episode.read_text(encoding="utf-8").replace("kind: topic", "kind:")
     episode.write_text(text, encoding="utf-8")
     report = validate_shelf(memshelf_like)
     assert "episode-frontmatter-invalid" in rules(report, "error")
+    assert "episode-kind-unknown" not in rules(report)
 
 
 def test_document_profile_has_no_frontmatter_rules(docshelf_like: Path) -> None:
@@ -388,4 +390,60 @@ def test_research_without_body_section_is_error(memshelf_like: Path) -> None:
 def test_complete_episode_has_no_sections_finding(memshelf_like: Path) -> None:
     # The shipped fixtures already carry every required section.
     report = validate_shelf(memshelf_like)
+    assert "episode-sections-missing" not in rules(report)
+
+
+# --------------------------------------------------- forward compatibility
+
+
+def _swap_line(path: Path, old_prefix: str, new_line: str) -> None:
+    """Replace the single line starting with ``old_prefix`` (must exist)."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    hits = [i for i, line in enumerate(lines) if line.startswith(old_prefix)]
+    assert len(hits) == 1, f"expected exactly one '{old_prefix}' line, got {len(hits)}"
+    lines[hits[0]] = new_line
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def test_unknown_profile_is_warning_not_config_error(memshelf_like: Path) -> None:
+    """A profile from a newer spec revision must not redline the shelf."""
+    _swap_line(memshelf_like / "shelf.yml", "profile:", "profile: experience")
+    report = validate_shelf(memshelf_like)
+    assert report["verdict"] == "valid"
+    assert rules(report, "warning") == {"profile-unknown"}
+    assert rules(report) == {"profile-unknown"}
+
+
+def test_unknown_profile_skips_profile_rules(memshelf_like: Path) -> None:
+    """Profile-specific rules are the newer spec's job, not this validator's.
+
+    The episode is broken on purpose: under ``profile: memory`` this exact
+    tree fails ``episode-frontmatter-missing`` (asserted below as the
+    control), so a green run under the unknown profile proves the rules
+    were skipped rather than vacuously satisfied.
+    """
+    episode = memshelf_like / "docs" / "topics" / "2026-01-10-fixture-topic.md"
+    episode.write_text("# no frontmatter here\n\nbody\n", encoding="utf-8")
+
+    control = validate_shelf(memshelf_like)
+    assert "episode-frontmatter-missing" in rules(control, "error")
+
+    _swap_line(memshelf_like / "shelf.yml", "profile:", "profile: experience")
+    report = validate_shelf(memshelf_like)
+    assert report["verdict"] == "valid"
+    assert "episode-frontmatter-missing" not in rules(report)
+
+
+def test_unknown_kind_is_warning_not_error(memshelf_like: Path) -> None:
+    """An unknown episode kind inside a known profile degrades to a warning."""
+    episode = memshelf_like / "docs" / "topics" / "2026-01-10-fixture-topic.md"
+    text = episode.read_text(encoding="utf-8")
+    assert "kind: topic" in text
+    episode.write_text(text.replace("kind: topic", "kind: pitfall"), encoding="utf-8")
+
+    report = validate_shelf(memshelf_like)
+    assert report["verdict"] == "valid"
+    assert "episode-kind-unknown" in rules(report, "warning")
+    assert "episode-frontmatter-invalid" not in rules(report)
+    # No section contract is enforced for a kind this validator does not know.
     assert "episode-sections-missing" not in rules(report)

@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **Forward compatibility for unknown profiles and kinds** (#24, шаг 1 —
+  предпосылка `profile: experience` из дизайн-пакета 12-experience-lab).
+  До этой правки полка с профилем из более новой ревизии спеки была
+  валидно красной: `profile` был закрытым enum в схеме (незнакомое
+  значение — config-error на манифест-гейте), а незнакомый `kind` —
+  error `episode-frontmatter-invalid`. Теперь набор профилей открыт
+  (SPEC 2.1): незнакомый профиль — warning `profile-unknown`, универсальные
+  правила выполняются, профильные пропускаются; незнакомый `kind` внутри
+  `memory` — warning `episode-kind-unknown` без энфорса секционного
+  контракта. `--strict` по-прежнему превращает оба warning'а в отказ —
+  это и есть режим «пиновать известную ревизию» для CI. Краевой случай
+  закреплён отдельно: `kind:` без значения — не «новая ревизия», а битый
+  frontmatter, остаётся error (и это доказано мутацией: снятие ветки
+  роняет `test_episode_empty_kind_is_error`). Три новых теста были
+  красными на старом коде до имплементации.
+
 - **Ported the server to MCP SDK 2.x.** `FastMCP` (`mcp.server.fastmcp`)
   became `MCPServer` (`mcp.server.mcpserver`) in 2.0.0. The pin moves to
   `mcp>=2.0.0,<3` — a **floor**, not a raised ceiling: a 1.x install now

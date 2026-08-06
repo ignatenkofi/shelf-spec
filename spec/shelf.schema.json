@@ -24,8 +24,8 @@
     },
     "profile": {
       "type": "string",
-      "description": "Rule profile. memory: episodes with frontmatter, ledger and policy expected (memshelf lineage). document: plain markdown documents, no frontmatter requirements (docshelf lineage). Default: document.",
-      "enum": ["memory", "document"]
+      "description": "Rule profile. Known to this revision: memory (episodes with frontmatter, ledger and policy expected — memshelf lineage) and document (plain markdown documents, no frontmatter requirements — docshelf lineage). Default: document. The value set is OPEN across spec revisions (forward compatibility, SPEC 2.1): an unknown profile is NOT a schema failure — validators apply universal rules only, skip profile-specific rules, and report warning profile-unknown.",
+      "minLength": 1
     },
     "docs_root": {
       "type": "string",
