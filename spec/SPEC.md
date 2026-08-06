@@ -92,6 +92,18 @@ The `profile` manifest field selects which rule set applies:
 
 Default profile: `document`.
 
+**Forward compatibility.** The profile value set is OPEN across spec
+revisions: later revisions may register new profiles (with their own rule
+sets) without breaking earlier validators. A validator that encounters a
+profile it does not implement MUST NOT treat the shelf as a config-error
+or a violation: it MUST apply the universal rules (manifest, tree, index,
+implementation-config), MUST skip profile-specific rules, and MUST report
+the warning `profile-unknown` (section 9.1). A caller that wants unknown
+profiles to fail uses `--strict`, which promotes warnings to failure
+(section 9.2). The same principle applies one level down: an unknown
+episode `kind` inside the `memory` profile is the warning
+`episode-kind-unknown`, not an error (section 5.2).
+
 ## 3. Manifest — `shelf.yml`
 
 The manifest is a YAML file at the shelf root. Its schema is
@@ -102,7 +114,9 @@ schema is the normative field list; this section describes intent.
   v0.
 - `mode` (REQUIRED) — `single` (all of v0) or `multi` (reserved, M1).
 - `name` — human-readable shelf name.
-- `profile` — `memory` | `document` (section 2.1).
+- `profile` — `memory` | `document` (section 2.1); other values are
+  legal and forward-compatible — unknown profiles downgrade to universal
+  rules plus a warning, never a config-error (section 2.1).
 - `docs_root` — content directory, default `docs`.
 - `categories` — explicit category list; absent/empty = implicit.
 - `index` — `{path: INDEX.md, generated_by: docshelf-mcp|external|manual}`.
@@ -262,7 +276,11 @@ accept both placements (byte 0 and after-H1).
 
 - `id` (REQUIRED) — MUST equal the filename without `.md`. Recommended
   form: `YYYY-MM-DD-<latin-slug>`.
-- `kind` (REQUIRED) — `topic` | `research` | `session`.
+- `kind` (REQUIRED) — `topic` | `research` | `session`. A kind outside
+  this set is reported as the warning `episode-kind-unknown` (forward
+  compatibility, section 2.1) and its section contract (5.3) is not
+  enforced; a present-but-empty `kind` is malformed frontmatter and stays
+  an error.
 - `span` (REQUIRED) — when the work happened: `YYYY-MM-DD` or
   `YYYY-MM-DD..YYYY-MM-DD`. The date pattern is *recommended*, not
   enforced: live shelves carry trailing clarifications
@@ -363,8 +381,9 @@ error:
 - `episode-frontmatter-missing` — memory profile: a document has no
   frontmatter block (section 5.1).
 - `episode-frontmatter-invalid` — memory profile: frontmatter present but
-  violates section 5.2 (missing required field, `id` != stem, unknown
-  `kind`, non-integer `approx_tokens`).
+  violates section 5.2 (missing required field, `id` != stem, empty
+  `kind`, non-integer `approx_tokens`). An *unknown* `kind` is the
+  warning `episode-kind-unknown`, not this error (section 2.1).
 - `episode-sections-missing` — memory profile: an episode is missing a
   required H2 section for its `kind` (section 5.3): `## Digest` for every
   kind, `## Decisions` for `topic`, `## Timeline` + `## Open threads` for
@@ -374,6 +393,13 @@ error:
 
 warning:
 
+- `profile-unknown` — the manifest declares a profile this validator does
+  not implement (section 2.1): universal rules ran, profile-specific
+  rules were skipped. `--strict` promotes this to failure.
+- `episode-kind-unknown` — memory profile: an episode declares a `kind`
+  outside `topic|research|session` (section 5.2): possibly from a newer
+  spec revision; its section contract is not enforced. `--strict`
+  promotes this to failure.
 - `stale-meta-entry` — `.meta.json` key with no matching file.
 - `corrupt-meta` — `.meta.json` is not valid JSON.
 - `orphaned-split-dir` — split directory with no parent document (only on
