@@ -63,6 +63,16 @@ def _looks_like_timeout(exc: BaseException) -> bool:
     return isinstance(exc, TimeoutError) or "timed out" in str(exc).lower()
 
 
+def _looks_like_dead_child(exc: BaseException) -> bool:
+    """True when the child never got far enough to answer anything at all.
+
+    A child that dies at startup closes stdout, and the SDK reports that as
+    ``Connection closed`` — indistinguishable from "the cap did not fire"
+    unless it is asked about separately.
+    """
+    return "connection closed" in str(exc).lower()
+
+
 def _server() -> StdioServerParameters:
     return StdioServerParameters(
         command=sys.executable, args=["-m", "shelf_spec", "serve"], env=dict(os.environ)
@@ -143,8 +153,22 @@ def test_a_server_that_never_answers_fails_instead_of_hanging():
     cases — measured on the sibling ports, 2.02s dead against 4.03s live,
     because spawning the child dominates both.
     """
+    # The child gets the whole environment. Without ``env`` the SDK hands it
+    # only HOME/LOGNAME/PATH/SHELL/TERM/USER
+    # (``mcp.client.stdio.DEFAULT_INHERITED_ENV_VARS``), while an interpreter
+    # installed by ``actions/setup-python`` is built ``--enable-shared``. The
+    # self-hosted runner said it outright:
+    #
+    #   python: error while loading shared libraries: libpython3.11.so.1.0:
+    #   cannot open shared object file: No such file or directory
+    #
+    # The child dies at startup, stdout closes, and ``Connection closed`` comes
+    # out instead of a timeout — the test stops measuring the cap and starts
+    # measuring process spawn.
     silent = StdioServerParameters(
-        command=sys.executable, args=["-c", "import time; time.sleep(3600)"]
+        command=sys.executable,
+        args=["-c", "import time; time.sleep(3600)"],
+        env=dict(os.environ),
     )
     started = time.monotonic()
 
@@ -159,6 +183,13 @@ def test_a_server_that_never_answers_fails_instead_of_hanging():
 
     raised = _flatten_exception(caught.value)
     assert not any(isinstance(exc, AssertionError) for exc in raised)
+    # Positive control: the child had to actually START. A dead child raises
+    # here too, and without asking about it separately its failure reads as
+    # "the cap did not fire" — the test would quietly measure something else.
+    assert not any(_looks_like_dead_child(exc) for exc in raised), (
+        "the child never started, so this measured spawn and not the cap: "
+        + "; ".join(f"{type(exc).__name__}: {exc}" for exc in raised)
+    )
     assert any(_looks_like_timeout(exc) for exc in raised), (
         "nothing in the failure says the request timed out, so the cap was not "
         "what stopped it: " + "; ".join(f"{type(exc).__name__}: {exc}" for exc in raised)
