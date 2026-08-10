@@ -10,7 +10,11 @@ on:
 jobs:
   test:
     name: Test (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    # Ферма polygon-iac: минуты Actions приватных репо исчерпаны и не
+    # возобновляются (решение владельца 2026-08-09). Пропущено в общей
+    # пачке переезда — тогда перевели только адаптер security.yml, и
+    # эта матрица осталась падать с «job was not started».
+    runs-on: [self-hosted, polygon]
     strategy:
       fail-fast: false
       matrix:
