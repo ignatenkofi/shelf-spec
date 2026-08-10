@@ -40,6 +40,11 @@ FIXTURES = Path(__file__).parent / "fixtures"
 # call site; it raises TypeError deep inside anyio on the first request.
 WIRE_TIMEOUT = 60.0
 
+# Кап чтения для теста ниже — константой, а не литералом в двух местах:
+# контроль по времени сравнивается ровно с тем числом, которое уходит в
+# ClientSession. Разъехались бы — и контроль стал бы проверять фантазию.
+READ_CAP = 2.0
+
 
 def _flatten_exception(exc: BaseException) -> list[BaseException]:
     """Every exception in the tree: the group, its members, and their causes."""
@@ -61,6 +66,16 @@ def _flatten_exception(exc: BaseException) -> list[BaseException]:
 def _looks_like_timeout(exc: BaseException) -> bool:
     """True for "the wait ran out", whatever type the SDK wraps it in."""
     return isinstance(exc, TimeoutError) or "timed out" in str(exc).lower()
+
+
+def _looks_like_dead_child(exc: BaseException) -> bool:
+    """True when the child never got far enough to answer anything at all.
+
+    A child that dies at startup closes stdout, and the SDK reports that as
+    ``Connection closed`` — indistinguishable from "the cap did not fire"
+    unless it is asked about separately.
+    """
+    return "connection closed" in str(exc).lower()
 
 
 def _server() -> StdioServerParameters:
@@ -139,18 +154,36 @@ def test_a_server_that_never_answers_fails_instead_of_hanging():
     """The cap above must be load-bearing, not a comment.
 
     Asserted on the leaf exception naming a timeout rather than on "something
-    was raised": a dead cap raises too, and elapsed time does not separate the
-    cases — measured on the sibling ports, 2.02s dead against 4.03s live,
-    because spawning the child dominates both.
+    was raised": a dead cap raises too.
+
+    Про время. Прежняя редакция запрещала мерить его вообще — «2.02s dead
+    against 4.03s live, spawning dominates». Это верно для пары «кап мёртв» /
+    «кап жив», но НЕ для пары «ребёнок мёртв» / «кап жив»: мёртвый ребёнок
+    роняет тот же блок за ~0.00s, и здесь время разделяет случаи идеально.
+    Нижняя граница ниже опирается именно на вторую пару.
     """
+    # The child gets the whole environment. Without ``env`` the SDK hands it
+    # only HOME/LOGNAME/PATH/SHELL/TERM/USER
+    # (``mcp.client.stdio.DEFAULT_INHERITED_ENV_VARS``), while an interpreter
+    # installed by ``actions/setup-python`` is built ``--enable-shared``. The
+    # self-hosted runner said it outright:
+    #
+    #   python: error while loading shared libraries: libpython3.11.so.1.0:
+    #   cannot open shared object file: No such file or directory
+    #
+    # The child dies at startup, stdout closes, and ``Connection closed`` comes
+    # out instead of a timeout — the test stops measuring the cap and starts
+    # measuring process spawn.
     silent = StdioServerParameters(
-        command=sys.executable, args=["-c", "import time; time.sleep(3600)"]
+        command=sys.executable,
+        args=["-c", "import time; time.sleep(3600)"],
+        env=dict(os.environ),
     )
     started = time.monotonic()
 
     async def scenario():
         async with stdio_client(silent) as (read, write):
-            async with ClientSession(read, write, read_timeout_seconds=2.0) as session:
+            async with ClientSession(read, write, read_timeout_seconds=READ_CAP) as session:
                 await session.initialize()
 
     with pytest.raises(BaseException) as caught:
@@ -159,8 +192,27 @@ def test_a_server_that_never_answers_fails_instead_of_hanging():
 
     raised = _flatten_exception(caught.value)
     assert not any(isinstance(exc, AssertionError) for exc in raised)
+    # Positive control: the child had to actually START. A dead child raises
+    # here too, and without asking about it separately its failure reads as
+    # "the cap did not fire" — the test would quietly measure something else.
+    # Контроль первый и главный — ПО ВРЕМЕНИ: если нас остановил кап, мы ждали
+    # не меньше капа. Он не зависит ни от формулировок SDK, ни от скорости
+    # машины, поэтому переживёт и смену версии mcp, и следующую среду.
+    # Мёртвый ребёнок роняет тот же блок за ~0.00s.
+    assert elapsed >= READ_CAP, (
+        f"сдались через {elapsed:.2f}s при капе {READ_CAP}s — ребёнок не дожил "
+        "до запроса, тест померил спавн, а не кап: "
+        + "; ".join(f"{type(exc).__name__}: {exc}" for exc in raised)
+    )
+    # Контроль второй, по тексту: он точнее называет ПРИЧИНУ смерти ребёнка в
+    # сообщении, но опирается на формулировку SDK и поэтому идёт вторым —
+    # сменится текст, останется контроль выше.
+    assert not any(_looks_like_dead_child(exc) for exc in raised), (
+        "the child never started, so this measured spawn and not the cap: "
+        + "; ".join(f"{type(exc).__name__}: {exc}" for exc in raised)
+    )
     assert any(_looks_like_timeout(exc) for exc in raised), (
         "nothing in the failure says the request timed out, so the cap was not "
         "what stopped it: " + "; ".join(f"{type(exc).__name__}: {exc}" for exc in raised)
     )
-    assert elapsed < 60, f"waited {elapsed:.0f}s — the cap did not fire at all"
+    assert elapsed < READ_CAP + 30, f"waited {elapsed:.0f}s — the cap did not fire at all"
