@@ -15,7 +15,17 @@ permissions:
 jobs:
   build:
     name: Build distribution
-    runs-on: ubuntu-latest
+    # Ферма polygon-iac. Биллинг GitHub владелец не возобновляет
+    # (решение 2026-08-09), поэтому релиз на hosted не «дороже» — он
+    # НЕ СТАРТУЕТ вовсе, и выпустить релиз сегодня невозможно.
+    #
+    # Публикация идёт через OIDC trusted publishing: постоянного токена
+    # PyPI нигде не лежит, GitHub выдаёт короткоживущий под конкретный
+    # workflow конкретного репозитория. Обменивает его на артефакт и
+    # грузит в индекс теперь эфемерная VM фермы, живущая минуты. Решение
+    # владельца 2026-08-10: собственное железо предпочтительнее
+    # возобновления билинга.
+    runs-on: [self-hosted, polygon]
     steps:
       - uses: actions/checkout@v7
 
@@ -48,7 +58,17 @@ jobs:
 
   publish-pypi:
     name: Publish to PyPI (trusted publishing)
-    runs-on: ubuntu-latest
+    # Ферма polygon-iac. Биллинг GitHub владелец не возобновляет
+    # (решение 2026-08-09), поэтому релиз на hosted не «дороже» — он
+    # НЕ СТАРТУЕТ вовсе, и выпустить релиз сегодня невозможно.
+    #
+    # Публикация идёт через OIDC trusted publishing: постоянного токена
+    # PyPI нигде не лежит, GitHub выдаёт короткоживущий под конкретный
+    # workflow конкретного репозитория. Обменивает его на артефакт и
+    # грузит в индекс теперь эфемерная VM фермы, живущая минуты. Решение
+    # владельца 2026-08-10: собственное железо предпочтительнее
+    # возобновления билинга.
+    runs-on: [self-hosted, polygon]
     needs: build
     environment:
       name: pypi
@@ -71,7 +91,17 @@ jobs:
 
   github-release:
     name: Create GitHub Release
-    runs-on: ubuntu-latest
+    # Ферма polygon-iac. Биллинг GitHub владелец не возобновляет
+    # (решение 2026-08-09), поэтому релиз на hosted не «дороже» — он
+    # НЕ СТАРТУЕТ вовсе, и выпустить релиз сегодня невозможно.
+    #
+    # Публикация идёт через OIDC trusted publishing: постоянного токена
+    # PyPI нигде не лежит, GitHub выдаёт короткоживущий под конкретный
+    # workflow конкретного репозитория. Обменивает его на артефакт и
+    # грузит в индекс теперь эфемерная VM фермы, живущая минуты. Решение
+    # владельца 2026-08-10: собственное железо предпочтительнее
+    # возобновления билинга.
+    runs-on: [self-hosted, polygon]
     # Tag pushes only: a workflow_dispatch run would otherwise create a
     # bogus release named after the branch.
     if: startsWith(github.ref, 'refs/tags/')
