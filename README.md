@@ -31,12 +31,13 @@ pip install -e '.[dev]'
 
 ## CLI
 
-```bash
-shelf-spec init PATH --name "My shelf" --profile memory --categories topics,research,sessions
+```text
+shelf-spec init [PATH] [--name NAME] [--mode single|multi]
+               [--profile memory|document] [--categories a,b,c]
 shelf-spec validate [PATH]              # human-readable report
 shelf-spec validate --ci [PATH]         # machine JSON on stdout, exit 0/1/2
 shelf-spec validate --json [PATH]       # JSON report
-shelf-spec validate --manifest CANDIDATE.yml PATH   # validate a tree against
+shelf-spec validate --manifest MANIFEST.yml [PATH]   # validate a tree against
                                        # an external manifest without touching it
 shelf-spec info [PATH]                  # manifest + index summary for a client
 shelf-spec serve                        # MCP server on stdio
