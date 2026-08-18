@@ -22,6 +22,9 @@ the production repo).
 - `src/shelf_spec/` — engine (manifest loader, validator, scaffolder, info)
   with two thin transports: an MCP server and a CLI.
 - `docs/advisory-ci.md` — drop-in advisory CI stage for shelf repos.
+- `docs/shelf-direction-and-channels.md` — direction of the shelf family
+  (selection, ownership, provenance; pull vs push) and the outreach
+  channels. In Russian.
 
 ## Install
 
