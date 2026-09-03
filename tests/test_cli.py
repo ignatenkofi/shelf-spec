@@ -40,6 +40,44 @@ def test_validate_strict_promotes_warnings(memshelf_like: Path, capsys) -> None:
     assert main(["validate", "--strict", str(memshelf_like)]) == 1
 
 
+def test_validate_strict_pins_known_revision(memshelf_like: Path, capsys) -> None:
+    """SPEC 2.1: forward-compat warnings pass by default and fail under --strict.
+
+    A shelf from a newer spec revision (unknown ``profile``, unknown episode
+    ``kind``) is exit 0 for a plain ``validate`` — the format promises not to
+    redline it — while ``--strict`` is the documented way for CI to pin the
+    revision this validator implements, so the same shelf is exit 1 there.
+    """
+    manifest = memshelf_like / "shelf.yml"
+    episode = memshelf_like / "docs" / "topics" / "2026-01-10-fixture-topic.md"
+
+    # Unknown profile: only `profile-unknown` is reported.
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8").replace("profile: memory", "profile: experience"),
+        encoding="utf-8",
+    )
+    assert main(["validate", "--ci", str(memshelf_like)]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert {f["rule"] for f in report["findings"]} == {"profile-unknown"}
+    assert main(["validate", "--strict", "--ci", str(memshelf_like)]) == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["verdict"] == "valid"  # the report is unchanged; only the exit code is
+
+    # Unknown kind inside the known memory profile: same shape one level down.
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8").replace("profile: experience", "profile: memory"),
+        encoding="utf-8",
+    )
+    episode.write_text(
+        episode.read_text(encoding="utf-8").replace("kind: topic", "kind: pitfall"),
+        encoding="utf-8",
+    )
+    assert main(["validate", "--ci", str(memshelf_like)]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert {f["rule"] for f in report["findings"]} == {"episode-kind-unknown"}
+    assert main(["validate", "--strict", str(memshelf_like)]) == 1
+
+
 def test_validate_external_manifest(legacy_like: Path, capsys) -> None:
     code = main(["validate", "--ci", "--manifest", str(legacy_manifest()), str(legacy_like)])
     assert code == 0
