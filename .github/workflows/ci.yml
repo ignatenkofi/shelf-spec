@@ -39,7 +39,15 @@ jobs:
         run: ruff check src tests
 
       - name: Run tests
-        run: pytest -v
+        run: |
+          # Предпосылка до прогона. tests/test_stdio_protocol.py начинается с
+          # `pytest.importorskip("mcp")`, и для голого чекаута это правильно.
+          # Но `mcp>=2.0.0,<3` — жёсткая зависимость (pyproject `dependencies`),
+          # значит здесь скип означает сломанную установку, а не «SDK не нужен».
+          # Скипнуть тут — потерять единственный тест, который вообще говорит по
+          # протоколу, и получить зелёный прогон, не проверивший транспорт.
+          python -c "import mcp"
+          pytest -v
 
       - name: Self-check — all spec examples validate against the schema
         run: |
