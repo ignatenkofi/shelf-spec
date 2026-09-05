@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Docs: the memory shelf is named by its live name, `main-memshelf` (ex
+  `sqst-memshelf`); its adoption candidate, applied in the shelf on 2026-08-21,
+  is removed from `docs/adoption/` as that page's rule requires
+  (main-memshelf#153).
 - **Forward compatibility for unknown profiles and kinds** (#24, шаг 1 —
   предпосылка `profile: experience` из дизайн-пакета 12-experience-lab).
   До этой правки полка с профилем из более новой ревизии спеки была

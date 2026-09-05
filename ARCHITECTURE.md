@@ -55,7 +55,7 @@ shelf-spec (SPEC.md + shelf.yml схема)   ← продукт, публичн
 server.py (MCP)    cli.py (CI/руками)
         │
 docshelf-mcp — reference-реализация (add_document, rebuild_index, …)
-sqst-memshelf и др. — совместимые полки
+main-memshelf и др. — совместимые полки
 ```
 
 Транспорт между вендорами уже решён не нами: MCP принят индустрией
@@ -168,7 +168,7 @@ provenance + policy-агенты) на рынке нет. Гейт перед M1
 
 - **02-pii-mcp → 07** — `pii_verify` = первый policy-агент полки: гейт на
   запись в multi-режиме. Тот же контракт verify, что для полок и issue-kit.
-- **07 ↔ docshelf-mcp / sqst-memshelf** — reference-реализация и первая
+- **07 ↔ docshelf-mcp / main-memshelf** — reference-реализация и первая
   совместимая полка; неделя эксплуатации memshelf — эмпирический фундамент
   спека (ledger уже доказал учёт, POLICY — политику, INDEX — каталог).
 - **07 ↔ 06-issue-kit** — родственный паттерн «спек — единственный источник

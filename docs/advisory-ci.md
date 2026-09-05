@@ -68,6 +68,9 @@ whoever maintains those shelves, not to this page. Until then, read the job
 above as what a *new* shelf should copy, not as a description of what the
 existing three do.
 
+> Note (2026-09-05): `sqst-memshelf` has since been renamed `main-memshelf`.
+> The 2026-08-04 snapshot above is left as written.
+
 ### When you still want the git route
 
 Installing from the repository still makes sense in exactly one case: you want
