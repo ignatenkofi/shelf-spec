@@ -7,7 +7,7 @@ else migrates.
 
 | candidate | target shelf | profile | notes |
 |---|---|---|---|
-| `sqst-memshelf.shelf.yml` | sqst-memshelf | memory | ledger + policy declared |
+| *(applied, removed)* | main-memshelf (then `sqst-memshelf`) | memory | ledger + policy declared; `shelf.yml` lives in the shelf since 2026-08-21 |
 | `unevie-shelf.shelf.yml` | unevie-shelf | document | older `.docshelf.json` stays valid |
 | `homelab-shelf.shelf.yml` | homelab-shelf | document | pre-docshelf: nested docs root, external index, extra dirs |
 
@@ -21,6 +21,11 @@ shelf-spec validate --ci --manifest docs/adoption/<shelf>.shelf.yml /path/to/<sh
 
 ## Status: drafted, not yet applied
 
+> **2026-09-05.** `main-memshelf` (renamed from `sqst-memshelf` in August)
+> has carried its own `shelf.yml` since 2026-08-21, so its candidate was
+> removed from this directory as the rule at the end of this page requires.
+> The two rows below are the candidates still waiting.
+
 Committing these files **into the shelf repositories is an owner action**
 — the shelf repos are outside this repository and were treated as
 read-only during M0. Until then this directory is the canonical home of
@@ -33,7 +38,7 @@ the candidates (they must not live only in a session handoff). To apply:
    [`../advisory-ci.md`](../advisory-ci.md) in the same change.
 
 Expected non-blocking findings on today's clones (exit code stays 0):
-sqst-memshelf — none; unevie-shelf — `remote-mismatch` warning,
+main-memshelf (measured as `sqst-memshelf`) — none; unevie-shelf — `remote-mismatch` warning,
 `no-policy` info; homelab-shelf — `remote-mismatch` and one `stale-index`
 warning, `no-policy` info.
 
