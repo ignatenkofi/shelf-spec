@@ -16,6 +16,7 @@ jobs:
     # краснотой. Матрица была пропущена в общей пачке переезда: тогда
     # перевели только адаптер security.yml.
     runs-on: [self-hosted, polygon]
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
