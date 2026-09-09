@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.2.0 (2026-09-09)
+
+- **Repository is public; the install path is `pip install shelf-spec`.**
+  Owner's decision 2026-09-09. Consequences documented in
+  `docs/advisory-ci.md`: neither the PyPI route nor the tip route needs a
+  credential any more, so the `SHELF_SPEC_TOKEN` / `HAVE_TOKEN` gate is gone
+  from the recipe, and the portfolio shelves (`main-memshelf`,
+  `homelab-shelf`, `unevie-shelf`) plus the `docshelf-mcp` conformance job
+  run the stage **blocking** — a spec violation turns the run red instead
+  of hiding under `continue-on-error`. The first blocking run on
+  `main-memshelf` surfaced a real one that the advisory run had been
+  reporting since 2026-08-24 without anyone reading the log.
+
 - Docs: the memory shelf is named by its live name, `main-memshelf` (ex
   `sqst-memshelf`); its adoption candidate, applied in the shelf on 2026-08-21,
   is removed from `docs/adoption/` as that page's rule requires
