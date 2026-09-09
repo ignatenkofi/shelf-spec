@@ -29,6 +29,12 @@ the production repo).
 ## Install
 
 ```bash
+pip install shelf-spec
+```
+
+From a checkout, for development:
+
+```bash
 pip install -e '.[dev]'
 ```
 
