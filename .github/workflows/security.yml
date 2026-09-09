@@ -1,10 +1,10 @@
 name: security
 # Файл-адаптер публичного DevSecOps-конвейера
-# (ignatenkofi/devsecops-pipeline-public). Репо ПРИВАТНЫЙ (комментарий
-# раньше утверждал обратное): hosted-минут у приватных больше нет
-# (решение владельца 2026-08-09), поэтому light исполняется на ферме
-# polygon-iac — вход runs-on ниже. Состав стадий и fail-политика — в
-# профиле класса на стороне конвейера.
+# (ignatenkofi/devsecops-pipeline-public). Репо ПУБЛИЧНЫЙ с 2026-09-09:
+# hosted-минуты бесплатны, а ферма polygon-iac публичные репо не
+# обслуживает (ADR 0003, fail-closed в demand-select) — поэтому light
+# исполняется на ubuntu-latest, как у docshelf-mcp. Состав стадий и
+# fail-политика — в профиле класса на стороне конвейера.
 on:
   pull_request:
   push:
@@ -14,4 +14,4 @@ jobs:
     uses: ignatenkofi/devsecops-pipeline-public/.github/workflows/pipeline-light.yml@v1
     with:
       repo-class: library
-      runs-on: polygon
+      runs-on: ubuntu-latest

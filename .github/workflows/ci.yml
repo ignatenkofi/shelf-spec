@@ -10,12 +10,13 @@ on:
 jobs:
   test:
     name: Test (Python ${{ matrix.python-version }})
-    # Ферма polygon-iac: минуты Actions приватных репо исчерпаны и не
-    # возобновляются (переезд портфеля 2026-08-09). На ubuntu-latest эта
-    # джоба не «медленнее» — она НЕ СТАРТУЕТ, и отказ выглядит обычной
-    # краснотой. Матрица была пропущена в общей пачке переезда: тогда
-    # перевели только адаптер security.yml.
-    runs-on: [self-hosted, polygon]
+    # Hosted-раннер, а не ферма polygon-iac. Репозиторий ПУБЛИЧНЫЙ с
+    # 2026-09-09 (релиз 0.2.0), и это меняет обе посылки переезда на
+    # ферму 2026-08-09: hosted-минуты у публичных репо бесплатны, а
+    # self-hosted раннер для публичного репо запрещён ADR 0003 polygon-iac
+    # (код из форка побежал бы на VM фермы) — demand-select фермы такой
+    # репозиторий не берёт (fail-closed), job висел бы в queued вечно.
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
