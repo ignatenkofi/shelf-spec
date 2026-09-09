@@ -4,6 +4,7 @@
 
 ## 0.2.0 (2026-09-09)
 
+- CI, security and release workflows run on GitHub-hosted `ubuntu-latest` again: a public repository gets hosted minutes for free, and the polygon-iac farm refuses public repositories by design (ADR 0003 — fork code must never reach a farm VM). The first `v0.2.0` tag queued on the farm and never started; the tag was recreated on the commit carrying this change.
 - **Repository is public; the install path is `pip install shelf-spec`.**
   Owner's decision 2026-09-09. Consequences documented in
   `docs/advisory-ci.md`: neither the PyPI route nor the tip route needs a
