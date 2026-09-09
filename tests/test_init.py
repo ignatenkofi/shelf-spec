@@ -84,9 +84,12 @@ def test_init_honors_non_default_layout(tmp_path: Path) -> None:
     second = init_shelf(root)
 
     # No stray scaffolding at the defaults the manifest overrides / omits.
-    assert not (root / "docs").exists()
-    assert not (root / "POLICY.md").exists()
-    assert not (root / "ledger.tsv").exists()
+    # Compare exact names: on case-insensitive filesystems (macOS APFS)
+    # (root / "docs").exists() is True because the fixture's DOCS matches.
+    entries = {p.name for p in root.iterdir()}
+    assert "docs" not in entries
+    assert "POLICY.md" not in entries
+    assert "ledger.tsv" not in entries
     # The declared docs root is left in place, not duplicated.
     assert (root / "DOCS" / "markdown").is_dir()
 
