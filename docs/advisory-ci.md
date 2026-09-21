@@ -2,8 +2,9 @@
 
 Drop-in GitHub Actions job for any shelf repository (memory or document).
 Blocking by default: a spec violation turns the run red. The portfolio
-shelves (`main-memshelf`, `homelab-shelf`, `unevie-shelf`) and the
-`docshelf-mcp` conformance job run it this way since 2026-09-09.
+shelves (`main-memshelf`, `homelab-iac/hardware-shelf` — ex `homelab-shelf`,
+moved 2026-09-14 — and `unevie-shelf`) and the `docshelf-mcp` conformance
+job run it this way since 2026-09-09.
 
 ```yaml
 name: shelf-validate

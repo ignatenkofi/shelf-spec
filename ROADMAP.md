@@ -14,7 +14,8 @@
   данные; INDEX не правится руками; транскрипты не коммитятся).
 - `engine/` + тонкие MCP/CLI: `shelf_init`, `shelf_validate`, `shelf_info`.
 - Существующие полки приводятся: `main-memshelf` (тогда `sqst-memshelf`), `unevie-shelf`,
-  `homelab-shelf` получают `shelf.yml` и проходят `shelf_validate`.
+  `homelab-iac/hardware-shelf` (тогда `homelab-shelf`) получают `shelf.yml` и
+  проходят `shelf_validate`.
 - docshelf-mcp объявляется reference-реализацией; несоответствия спеку
   чинятся на той стороне (или спек уточняется — v0 описателен).
 

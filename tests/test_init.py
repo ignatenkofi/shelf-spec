@@ -11,7 +11,8 @@ from shelf_spec.engine import ManifestError, init_shelf, validate_shelf
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
-# Mirrors docs/adoption/homelab-shelf.shelf.yml: an adopted pre-docshelf shelf
+# Mirrors the adopted homelab manifest (hardware-shelf/shelf.yml in homelab-iac,
+# ex docs/adoption/homelab-shelf.shelf.yml): an adopted pre-docshelf shelf
 # with a nested docs root, an external index, and no policy/ledger blocks.
 HOMELAB_MANIFEST = """\
 spec_version: "0.1"
