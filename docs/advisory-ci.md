@@ -66,7 +66,8 @@ job carried a `HAVE_TOKEN` gate on every step, because an ungated job under
 step never runs — a shelf that "looks covered" while nothing is checked.
 
 Four repositories carried that token (`docshelf-mcp`, `main-memshelf`,
-`homelab-shelf`, `unevie-shelf`). With the repository public the gate has
+`homelab-shelf` — a repository of its own then, `homelab-iac/hardware-shelf`
+now — and `unevie-shelf`). With the repository public the gate has
 nothing to guard, so the secret was deleted from all four and the jobs
 reduced to the shape above. The lesson stands even though the mechanism is
 gone: a token that exists is a token that can leak, expire, or be
