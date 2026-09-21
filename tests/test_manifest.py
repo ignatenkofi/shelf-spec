@@ -65,6 +65,50 @@ def test_unknown_top_level_key_is_config_error(tmp_path: Path) -> None:
     assert exc.value.rule == "manifest-invalid"
 
 
+def test_policy_patterns_accepted(tmp_path: Path) -> None:
+    """``policy.patterns`` names the machine-readable pattern file (SPEC 4.5).
+
+    memshelf-mcp writes it into every manifest it scaffolds; a schema that
+    refused the key made every live memshelf shelf a config-error.
+    """
+    (tmp_path / "shelf.yml").write_text(
+        'spec_version: "0.1"\n'
+        "mode: single\n"
+        "profile: memory\n"
+        "policy:\n"
+        "  path: POLICY.md\n"
+        "  patterns: POLICY.patterns\n",
+        encoding="utf-8",
+    )
+    m = load_manifest(tmp_path)
+    assert m.policy_path == "POLICY.md"
+    assert m.raw["policy"]["patterns"] == "POLICY.patterns"
+
+
+def test_policy_patterns_escaping_path_is_config_error(tmp_path: Path) -> None:
+    """Same path contract as ``policy.path``: relative to the root, no ``..``."""
+    (tmp_path / "shelf.yml").write_text(
+        'spec_version: "0.1"\nmode: single\npolicy:\n  patterns: ../POLICY.patterns\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ManifestError) as exc:
+        load_manifest(tmp_path)
+    assert exc.value.rule == "manifest-invalid"
+    assert "patterns" in exc.value.detail
+
+
+def test_unknown_policy_key_is_config_error(tmp_path: Path) -> None:
+    """Opening ``policy`` for ``patterns`` must not open it for typos."""
+    (tmp_path / "shelf.yml").write_text(
+        'spec_version: "0.1"\nmode: single\npolicy:\n  path: POLICY.md\n  typo_field: 1\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ManifestError) as exc:
+        load_manifest(tmp_path)
+    assert exc.value.rule == "manifest-invalid"
+    assert "typo_field" in exc.value.detail
+
+
 def test_missing_required_field_is_config_error(tmp_path: Path) -> None:
     (tmp_path / "shelf.yml").write_text("mode: single\n", encoding="utf-8")
     with pytest.raises(ManifestError) as exc:
