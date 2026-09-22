@@ -14,7 +14,8 @@
   данные; INDEX не правится руками; транскрипты не коммитятся).
 - `engine/` + тонкие MCP/CLI: `shelf_init`, `shelf_validate`, `shelf_info`.
 - Существующие полки приводятся: `main-memshelf` (тогда `sqst-memshelf`), `unevie-shelf`,
-  `homelab-shelf` получают `shelf.yml` и проходят `shelf_validate`.
+  `homelab-iac/hardware-shelf` (тогда `homelab-shelf`) получают `shelf.yml` и
+  проходят `shelf_validate`.
 - docshelf-mcp объявляется reference-реализацией; несоответствия спеку
   чинятся на той стороне (или спек уточняется — v0 описателен).
 
@@ -26,14 +27,18 @@
 **Первая польза:** `shelf_validate --ci` сразу встаёт advisory-стадией в
 shelf-репо (связь с пакетом 04).
 
-**Статус M0 (2026-07-15):** спек, engine, MCP/CLI, тесты — готово.
-Кандидаты `shelf.yml` для трёх полок лежат в `docs/adoption/` и проходят
-`shelf_validate --ci --manifest` по живым клонам (exit 0, три из трёх);
-**коммит `shelf.yml` в сами shelf-репо — действие владельца** (репо полок
-read-only для агентов, изменения не применены). Остальные гейты владельца:
-создание репо `ignatenkofi/shelf-spec` (issue-черновики оформляются после
-него), второй MCP-клиент из DoD, включение advisory-CI в полки
-(`docs/advisory-ci.md`).
+**Статус M0 (2026-09-21; даты — из CHANGELOG и git):** спек, engine,
+MCP/CLI, тесты — готово 2026-07-15. Гейты владельца закрыты все, кроме
+двух. Репо `ignatenkofi/shelf-spec` существует (имя — ADR 0007,
+2026-07-26; первый тег `v0.1.0` — 2026-07-31); пакет опубликован на PyPI,
+`pip install shelf-spec` (`v0.2.0` — 2026-09-09, репо публичный).
+`shelf.yml` применён в `main-memshelf` (2026-08-21) и в
+`homelab-iac/hardware-shelf` (тогда `homelab-shelf`; полка переехала в
+`homelab-iac` каталогом 2026-09-14, homelab-iac#155); обе валидируются
+блокирующей стадией `shelf-spec validate --ci` в своём CI
+(`docs/advisory-ci.md`, с 2026-09-09). Открыты: кандидат `unevie-shelf`
+(лежит в `docs/adoption/`, применение не подтверждено) и второй MCP-клиент
+из DoD.
 
 ## M1 — мульти-агентный базис
 
