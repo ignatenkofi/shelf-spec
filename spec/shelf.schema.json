@@ -72,12 +72,18 @@
     },
     "policy": {
       "type": "object",
-      "description": "Redaction / PII policy contract.",
+      "description": "Redaction / PII policy contract: the human-readable policy (path) and, on memory shelves, the machine-readable pattern file (patterns).",
       "additionalProperties": false,
       "properties": {
         "path": {
           "type": "string",
           "description": "Policy path relative to the shelf root. Default: POLICY.md.",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*\\.\\.).+$"
+        },
+        "patterns": {
+          "type": "string",
+          "description": "Path of the machine-readable redaction pattern file relative to the shelf root (memory profile, memshelf lineage: POLICY.patterns next to POLICY.md, one '<kind> <regex>' rule per line, read by the shelve redaction pass, doctor and the pre-commit guard). Optional, no default: a shelf without it has no machine-readable patterns. v0 validators accept the key and do not read the file.",
           "minLength": 1,
           "pattern": "^(?!/)(?!.*\\.\\.).+$"
         }

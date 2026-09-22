@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Schema: `policy.patterns` is accepted.** memshelf-mcp writes
+  `policy: {path: POLICY.md, patterns: POLICY.patterns}` into every manifest
+  it scaffolds (since 2026-07-25; the pattern pack is read by its shelve
+  redaction pass, `doctor` and the pre-commit guard, memshelf-mcp#16), and
+  the closed `policy` object turned every such shelf into a config-error:
+  `shelf-spec validate --ci` on the live `memshelf-mcp/shelf` and
+  `issue-kit/shelf` answered exit 2, `'patterns' was unexpected`. ADR 0005
+  says the spec follows the shelves, so the key is added — optional, the same
+  path contract as `policy.path`, not read by v0 validators — rather than
+  dropped from memshelf. The `memshelf_like` fixture now mirrors the live
+  manifest; an unknown key under `policy` is still refused.
+
 ## 0.2.0 (2026-09-09)
 
 - CI, security and release workflows run on GitHub-hosted `ubuntu-latest` again: a public repository gets hosted minutes for free, and the polygon-iac farm refuses public repositories by design (ADR 0003 — fork code must never reach a farm VM). The first `v0.2.0` tag queued on the farm and never started; the tag was recreated on the commit carrying this change.

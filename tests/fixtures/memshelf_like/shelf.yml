@@ -14,3 +14,4 @@ ledger:
   path: ledger.tsv
 policy:
   path: POLICY.md
+  patterns: POLICY.patterns

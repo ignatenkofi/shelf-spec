@@ -121,7 +121,8 @@ schema is the normative field list; this section describes intent.
 - `categories` — explicit category list; absent/empty = implicit.
 - `index` — `{path: INDEX.md, generated_by: docshelf-mcp|external|manual}`.
 - `ledger` — `{path: ledger.tsv}`.
-- `policy` — `{path: POLICY.md}`.
+- `policy` — `{path: POLICY.md, patterns: POLICY.patterns}`; `patterns` is
+  optional (section 4.5).
 - `extra_dirs` — declared non-Markdown sidecar directories.
 - `agents`, `provenance` — RESERVED (section 10); the v0 schema accepts
   them so that M1 manifests do not break v0 tooling.
@@ -240,6 +241,15 @@ append one row per shelve.
 Free-form Markdown stating the shelf's redaction and PII rules. Clients
 that write to the shelf MUST read and apply it before writing (section 8).
 Memory shelves SHOULD have one.
+
+Memory shelves of the memshelf lineage keep the machine-readable side of
+the policy in a second file, declared as `policy.patterns` (conventionally
+`POLICY.patterns`, next to `POLICY.md`): one `<kind> <regex>` rule per
+line, applied by memshelf-mcp's shelve redaction pass, its `doctor` scan at
+rest and its pre-commit guard. The key is OPTIONAL and has no default — a
+shelf without it has no machine-readable patterns. The file's format
+belongs to the implementation that reads it; v0 validators accept the key
+and do not open the file.
 
 ## 5. Episode format (memory profile)
 
