@@ -89,8 +89,21 @@ def test_validate_external_manifest(legacy_like: Path, capsys) -> None:
 
 def test_init_then_validate_roundtrip(tmp_path: Path, capsys) -> None:
     shelf = tmp_path / "shelf"
-    assert main(["init", str(shelf), "--name", "CLI shelf", "--profile", "memory",
-                 "--categories", "topics,research"]) == 0
+    assert (
+        main(
+            [
+                "init",
+                str(shelf),
+                "--name",
+                "CLI shelf",
+                "--profile",
+                "memory",
+                "--categories",
+                "topics,research",
+            ]
+        )
+        == 0
+    )
     assert main(["validate", str(shelf)]) == 0
 
 
