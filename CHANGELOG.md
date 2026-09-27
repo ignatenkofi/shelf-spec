@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- CI hygiene (#49): `ci.yml` now declares `permissions: contents: read` at
+  the workflow level (no job writes), a `concurrency` group per ref that
+  cancels a superseded run on a PR branch but never on `main`, and the lint
+  step runs `ruff format --check .` next to `ruff check .`. The tree was
+  formatted with `ruff format` first, in a separate commit with no semantic
+  changes, so the new check starts green.
 - **Schema: `policy.patterns` is accepted.** memshelf-mcp writes
   `policy: {path: POLICY.md, patterns: POLICY.patterns}` into every manifest
   it scaffolds (since 2026-07-25; the pattern pack is read by its shelve

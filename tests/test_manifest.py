@@ -47,9 +47,7 @@ def test_unparseable_yaml_is_config_error(tmp_path: Path) -> None:
 
 
 def test_schema_violation_is_config_error(tmp_path: Path) -> None:
-    (tmp_path / "shelf.yml").write_text(
-        'spec_version: "0.1"\nmode: banana\n', encoding="utf-8"
-    )
+    (tmp_path / "shelf.yml").write_text('spec_version: "0.1"\nmode: banana\n', encoding="utf-8")
     with pytest.raises(ManifestError) as exc:
         load_manifest(tmp_path)
     assert exc.value.rule == "manifest-invalid"

@@ -90,20 +90,24 @@ def _cmd_info(args: argparse.Namespace) -> int:
     else:
         print(f"name:         {payload['name'] or '(unnamed)'}")
         print(f"shelf:        {payload['shelf_root']}")
-        print(f"spec_version: {payload['spec_version']}   mode: {payload['mode']}   "
-              f"profile: {payload['profile']}")
+        print(
+            f"spec_version: {payload['spec_version']}   mode: {payload['mode']}   "
+            f"profile: {payload['profile']}"
+        )
         print(f"docs_root:    {payload['docs_root']}")
         print("categories:")
         for cat in payload["categories"]:
-            print(f"  {cat['name']}: {cat['documents']} document(s), "
-                  f"{cat['split_documents']} split")
-        print(f"index:        generated_by={payload['index_generated_by']} "
-              f"present={payload['has_index']}")
+            print(
+                f"  {cat['name']}: {cat['documents']} document(s), {cat['split_documents']} split"
+            )
+        print(
+            f"index:        generated_by={payload['index_generated_by']} "
+            f"present={payload['has_index']}"
+        )
         print(f"ledger:       {payload['has_ledger']}   policy: {payload['has_policy']}")
         reserved = payload["reserved"]
         if reserved["agents"] or reserved["provenance"]:
-            print(f"reserved M1:  agents={reserved['agents']} "
-                  f"provenance={reserved['provenance']}")
+            print(f"reserved M1:  agents={reserved['agents']} provenance={reserved['provenance']}")
         if payload["index_preamble"]:
             print("preamble:")
             for line in payload["index_preamble"].splitlines():
@@ -127,7 +131,9 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_init = sub.add_parser("init", help="scaffold a spec-conformant shelf (idempotent)")
-    p_init.add_argument("path", nargs="?", default=None, help="shelf root (default: $SHELF_SPEC_ROOT or cwd)")
+    p_init.add_argument(
+        "path", nargs="?", default=None, help="shelf root (default: $SHELF_SPEC_ROOT or cwd)"
+    )
     p_init.add_argument("--name", default="", help="human-readable shelf name")
     p_init.add_argument("--mode", choices=["single", "multi"], default="single")
     p_init.add_argument("--profile", choices=["memory", "document"], default="document")
@@ -136,7 +142,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p_init.set_defaults(func=_cmd_init)
 
     p_val = sub.add_parser("validate", help="lint a shelf against shelf-spec (exit 0/1/2)")
-    p_val.add_argument("path", nargs="?", default=None, help="shelf root (default: $SHELF_SPEC_ROOT or cwd)")
+    p_val.add_argument(
+        "path", nargs="?", default=None, help="shelf root (default: $SHELF_SPEC_ROOT or cwd)"
+    )
     p_val.add_argument(
         "--manifest",
         default=None,
@@ -150,7 +158,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p_val.set_defaults(func=_cmd_validate)
 
     p_info = sub.add_parser("info", help="manifest + index summary for a client")
-    p_info.add_argument("path", nargs="?", default=None, help="shelf root (default: $SHELF_SPEC_ROOT or cwd)")
+    p_info.add_argument(
+        "path", nargs="?", default=None, help="shelf root (default: $SHELF_SPEC_ROOT or cwd)"
+    )
     p_info.add_argument("--json", action="store_true", help="machine-readable output")
     p_info.set_defaults(func=_cmd_info)
 

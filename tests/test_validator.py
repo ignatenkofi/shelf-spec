@@ -10,11 +10,7 @@ from tests.conftest import legacy_manifest
 
 
 def rules(report: dict, severity: str | None = None) -> set[str]:
-    return {
-        f["rule"]
-        for f in report["findings"]
-        if severity is None or f["severity"] == severity
-    }
+    return {f["rule"] for f in report["findings"] if severity is None or f["severity"] == severity}
 
 
 # ------------------------------------------------------------ happy paths
@@ -251,9 +247,7 @@ def test_duplicate_title_is_warning(docshelf_like: Path) -> None:
 def test_empty_category_is_info(memshelf_like: Path) -> None:
     manifest = memshelf_like / "shelf.yml"
     manifest.write_text(
-        manifest.read_text(encoding="utf-8").replace(
-            "  - sessions", "  - sessions\n  - drafts"
-        ),
+        manifest.read_text(encoding="utf-8").replace("  - sessions", "  - sessions\n  - drafts"),
         encoding="utf-8",
     )
     report = validate_shelf(memshelf_like)
@@ -273,9 +267,7 @@ def test_docshelf_config_conflict_is_warning(memshelf_like: Path) -> None:
 
 
 def test_multi_mode_is_flagged_reserved(tmp_path: Path) -> None:
-    (tmp_path / "shelf.yml").write_text(
-        'spec_version: "0.1"\nmode: multi\n', encoding="utf-8"
-    )
+    (tmp_path / "shelf.yml").write_text('spec_version: "0.1"\nmode: multi\n', encoding="utf-8")
     (tmp_path / "docs").mkdir()
     report = validate_shelf(tmp_path)
     assert "reserved-m1" in rules(report, "info")

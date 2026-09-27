@@ -227,7 +227,9 @@ def _collect_findings(manifest: Manifest) -> list[Finding]:
     if manifest.mode == "multi":
         findings.append(
             Finding(
-                "reserved-m1", "info", "shelf.yml",
+                "reserved-m1",
+                "info",
+                "shelf.yml",
                 "mode: multi is reserved for M1 — v0 tooling does not enforce "
                 "zones, leases, or provenance",
                 "no action needed; multi semantics arrive in M1",
@@ -236,7 +238,9 @@ def _collect_findings(manifest: Manifest) -> list[Finding]:
     elif manifest.has_agents or manifest.has_provenance:
         findings.append(
             Finding(
-                "reserved-m1", "info", "shelf.yml",
+                "reserved-m1",
+                "info",
+                "shelf.yml",
                 "agents/provenance fields are reserved for M1 and ignored in single mode",
                 "no action needed",
             )
@@ -248,7 +252,9 @@ def _collect_findings(manifest: Manifest) -> list[Finding]:
     if manifest.profile not in KNOWN_PROFILES:
         findings.append(
             Finding(
-                "profile-unknown", "warning", "shelf.yml",
+                "profile-unknown",
+                "warning",
+                "shelf.yml",
                 f"profile '{manifest.profile}' is not known to this validator "
                 f"(known: {', '.join(sorted(KNOWN_PROFILES))}) — "
                 "profile-specific rules were skipped",
@@ -263,7 +269,9 @@ def _collect_findings(manifest: Manifest) -> list[Finding]:
     if not docs_root.is_dir():
         findings.append(
             Finding(
-                "docs-root-missing", "error", manifest.docs_root,
+                "docs-root-missing",
+                "error",
+                manifest.docs_root,
                 f"docs_root '{manifest.docs_root}' does not exist",
                 "create the directory or fix docs_root in shelf.yml",
             )
@@ -283,9 +291,10 @@ def _collect_findings(manifest: Manifest) -> list[Finding]:
             if cat.name and cat.name not in declared_set:
                 findings.append(
                     Finding(
-                        "category-undeclared", "error", rel(cat.dir),
-                        f"category directory '{cat.name}' is not declared in "
-                        "shelf.yml categories",
+                        "category-undeclared",
+                        "error",
+                        rel(cat.dir),
+                        f"category directory '{cat.name}' is not declared in shelf.yml categories",
                         "declare the category in shelf.yml or move the directory",
                     )
                 )
@@ -294,7 +303,9 @@ def _collect_findings(manifest: Manifest) -> list[Finding]:
             if name not in existing:
                 findings.append(
                     Finding(
-                        "empty-category", "info", f"{manifest.docs_root}/{name}",
+                        "empty-category",
+                        "info",
+                        f"{manifest.docs_root}/{name}",
                         f"declared category '{name}' has no directory",
                         "create the directory or drop it from categories",
                     )
@@ -327,7 +338,9 @@ def _check_category(manifest: Manifest, cat: _Category, findings: list[Finding])
     if cat.name and not cat.documents and not cat.split_dirs and not cat.orphan_dirs:
         findings.append(
             Finding(
-                "empty-category", "info", rel(cat.dir),
+                "empty-category",
+                "info",
+                rel(cat.dir),
                 "category directory contains no documents",
                 "add documents or remove the empty directory",
             )
@@ -347,7 +360,9 @@ def _check_category(manifest: Manifest, cat: _Category, findings: list[Finding])
         except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             findings.append(
                 Finding(
-                    "corrupt-meta", "warning", rel(meta_path),
+                    "corrupt-meta",
+                    "warning",
+                    rel(meta_path),
                     ".meta.json is not a valid JSON object",
                     "fix or delete the file, then regenerate the index",
                 )
@@ -357,7 +372,9 @@ def _check_category(manifest: Manifest, cat: _Category, findings: list[Finding])
                 if not (cat.dir / key).is_file():
                     findings.append(
                         Finding(
-                            "stale-meta-entry", "warning", rel(meta_path),
+                            "stale-meta-entry",
+                            "warning",
+                            rel(meta_path),
                             f"entry '{key}' has no matching document file",
                             "prune the entry",
                         )
@@ -373,7 +390,9 @@ def _check_category(manifest: Manifest, cat: _Category, findings: list[Finding])
                 continue  # declared sidecar dir under a category — intentional
             findings.append(
                 Finding(
-                    "orphaned-split-dir", "warning", rel(orphan),
+                    "orphaned-split-dir",
+                    "warning",
+                    rel(orphan),
                     "split directory has no parent document with the same stem",
                     "delete the directory or restore the parent document",
                 )
@@ -381,9 +400,7 @@ def _check_category(manifest: Manifest, cat: _Category, findings: list[Finding])
 
         # Split numbering: NNN-<slug>.md, zero-padded, contiguous from 001.
         for split_dir in cat.split_dirs:
-            sections = sorted(
-                p.name for p in split_dir.glob("*.md") if p.name != SUBINDEX_FILENAME
-            )
+            sections = sorted(p.name for p in split_dir.glob("*.md") if p.name != SUBINDEX_FILENAME)
             numbers: list[int] = []
             ok = bool(sections)
             for name in sections:
@@ -397,7 +414,9 @@ def _check_category(manifest: Manifest, cat: _Category, findings: list[Finding])
             if not ok:
                 findings.append(
                     Finding(
-                        "split-out-of-sync", "warning", rel(split_dir),
+                        "split-out-of-sync",
+                        "warning",
+                        rel(split_dir),
                         "section files do not follow contiguous NNN-<slug>.md "
                         "numbering starting at 001",
                         "re-split the parent document to regenerate its sections",
@@ -408,16 +427,16 @@ def _check_category(manifest: Manifest, cat: _Category, findings: list[Finding])
     by_title: dict[str, list[Path]] = {}
     for doc in cat.documents:
         entry = meta.get(doc.name)
-        title = (
-            entry.get("title", "") if isinstance(entry, dict) else ""
-        ) or doc.stem
+        title = (entry.get("title", "") if isinstance(entry, dict) else "") or doc.stem
         by_title.setdefault(title.strip().lower(), []).append(doc)
     for _title, paths in sorted(by_title.items()):
         if len(paths) > 1:
             for doc in sorted(paths)[1:]:
                 findings.append(
                     Finding(
-                        "duplicate-title", "warning", rel(doc),
+                        "duplicate-title",
+                        "warning",
+                        rel(doc),
                         f"title duplicates another document in '{label}'",
                         "give one of the documents a distinct title",
                     )
@@ -444,7 +463,9 @@ def _check_episode(manifest: Manifest, doc: Path, findings: list[Finding]) -> No
     if fm is None:
         findings.append(
             Finding(
-                "episode-frontmatter-missing", "error", path,
+                "episode-frontmatter-missing",
+                "error",
+                path,
                 "memory-profile document has no frontmatter block "
                 "(first ----fenced YAML block, optionally after an H1)",
                 "add frontmatter with id/kind/span/tags/approx_tokens",
@@ -472,7 +493,9 @@ def _check_episode(manifest: Manifest, doc: Path, findings: list[Finding]) -> No
     if problems:
         findings.append(
             Finding(
-                "episode-frontmatter-invalid", "error", path,
+                "episode-frontmatter-invalid",
+                "error",
+                path,
                 "; ".join(problems),
                 "fix the frontmatter per SPEC.md section 5.2",
             )
@@ -485,7 +508,9 @@ def _check_episode(manifest: Manifest, doc: Path, findings: list[Finding]) -> No
     if "kind" in fm and kind is not None and kind not in EPISODE_KINDS:
         findings.append(
             Finding(
-                "episode-kind-unknown", "warning", path,
+                "episode-kind-unknown",
+                "warning",
+                path,
                 f"kind '{kind}' is not one of {sorted(EPISODE_KINDS)} — "
                 "possibly from a newer spec revision; its section contract "
                 "is not enforced by this validator",
@@ -503,7 +528,9 @@ def _check_episode(manifest: Manifest, doc: Path, findings: list[Finding]) -> No
         if missing:
             findings.append(
                 Finding(
-                    "episode-sections-missing", "error", path,
+                    "episode-sections-missing",
+                    "error",
+                    path,
                     "missing required section(s): " + ", ".join(missing),
                     "add the required H2 section(s) per SPEC.md section 5.3",
                 )
@@ -523,7 +550,9 @@ def _check_extra_dirs(manifest: Manifest, findings: list[Finding]) -> None:
         if not (root / entry).is_dir():
             findings.append(
                 Finding(
-                    "extra-dir-missing", "info", rel,
+                    "extra-dir-missing",
+                    "info",
+                    rel,
                     f"declared extra_dir '{rel}' does not exist on disk",
                     "create the directory or drop it from extra_dirs",
                 )
@@ -537,7 +566,9 @@ def _check_ledger_policy(manifest: Manifest, findings: list[Finding]) -> None:
     elif manifest.profile == "memory":
         findings.append(
             Finding(
-                "no-ledger", "info", manifest.ledger_path,
+                "no-ledger",
+                "info",
+                manifest.ledger_path,
                 "memory-profile shelf has no ledger",
                 "create the ledger with its header on the first shelve",
             )
@@ -547,7 +578,9 @@ def _check_ledger_policy(manifest: Manifest, findings: list[Finding]) -> None:
     if not policy.is_file():
         findings.append(
             Finding(
-                "no-policy", "info", manifest.policy_path,
+                "no-policy",
+                "info",
+                manifest.policy_path,
                 "shelf has no redaction/PII policy file",
                 "add POLICY.md stating the shelf's redaction rules",
             )
@@ -584,7 +617,9 @@ def _check_ledger_file(manifest: Manifest, ledger: Path, findings: list[Finding]
     if problems:
         findings.append(
             Finding(
-                "ledger-malformed", "error", path,
+                "ledger-malformed",
+                "error",
+                path,
                 "; ".join(problems[:10]) + ("; ..." if len(problems) > 10 else ""),
                 "fix the ledger per SPEC.md section 4.4 (notes must not contain tabs)",
             )
@@ -596,7 +631,9 @@ def _check_index(manifest: Manifest, documents: list[Path], findings: list[Findi
     if not index.is_file():
         findings.append(
             Finding(
-                "stale-index", "warning", manifest.index_path,
+                "stale-index",
+                "warning",
+                manifest.index_path,
                 "index file does not exist",
                 "generate the index (rebuild_index in the reference implementation)",
             )
@@ -610,11 +647,12 @@ def _check_index(manifest: Manifest, documents: list[Path], findings: list[Findi
     if manifest.index_generated_by == "docshelf-mcp" and DOCSHELF_INDEX_MARKER not in text:
         findings.append(
             Finding(
-                "index-hand-edited", "error", manifest.index_path,
+                "index-hand-edited",
+                "error",
+                manifest.index_path,
                 "index.generated_by is docshelf-mcp but the generator footer "
                 "marker is absent — the file looks hand-written",
-                "regenerate the index with rebuild_index, or declare "
-                "generated_by: external/manual",
+                "regenerate the index with rebuild_index, or declare generated_by: external/manual",
             )
         )
 
@@ -626,11 +664,15 @@ def _check_index(manifest: Manifest, documents: list[Path], findings: list[Findi
     # Every primary document should be mentioned (by filename) in the index.
     for doc in documents:
         if doc.name not in text:
-            stale.append(f"document '{doc.relative_to(manifest.shelf_root).as_posix()}' is not listed")
+            stale.append(
+                f"document '{doc.relative_to(manifest.shelf_root).as_posix()}' is not listed"
+            )
     if stale:
         findings.append(
             Finding(
-                "stale-index", "warning", manifest.index_path,
+                "stale-index",
+                "warning",
+                manifest.index_path,
                 "; ".join(stale[:10]) + ("; ..." if len(stale) > 10 else ""),
                 "regenerate the index from the on-disk shelf state",
             )
@@ -692,7 +734,9 @@ def _check_remote(manifest: Manifest, findings: list[Finding]) -> None:
     if mismatched:
         findings.append(
             Finding(
-                "remote-mismatch", "warning", manifest.index_path,
+                "remote-mismatch",
+                "warning",
+                manifest.index_path,
                 f"index raw URLs point at {', '.join(mismatched)} but "
                 f"git origin is {origin[0]}/{origin[1]} — raw URLs do not "
                 "follow repo renames",
@@ -722,7 +766,9 @@ def _check_docshelf_config(manifest: Manifest, findings: list[Finding]) -> None:
     if conflicts:
         findings.append(
             Finding(
-                "docshelf-config-conflict", "warning", ".docshelf.json",
+                "docshelf-config-conflict",
+                "warning",
+                ".docshelf.json",
                 "; ".join(conflicts),
                 "align .docshelf.json with shelf.yml — the manifest is the contract",
             )

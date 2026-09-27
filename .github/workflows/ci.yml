@@ -7,6 +7,20 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Минимум прав: ни одна джоба здесь не пишет — checkout, pip install, ruff,
+# pytest и self-check схемы только читают дерево. Более широкие права
+# нужны release.yml, и там они выданы точечно, у него свой блок.
+permissions:
+  contents: read
+
+# Один прогон на ref. Повторный push в ветку PR отменяет прежний, ещё
+# идущий прогон (`github.ref` у PR — refs/pull/N/merge); на main прогоны
+# не отменяются, а становятся в очередь — у каждого влитого коммита
+# остаётся свой статус, и merge не теряет проверку из-за следующего.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -38,7 +52,12 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Lint with ruff
-        run: ruff check src tests
+        # Обе проверки, не одна: `ruff check` молчит о форматировании, а
+        # `ruff format --check` — о lint-правилах. Корень, а не `src tests`:
+        # .py-файлов вне них нет, но появившийся не должен остаться вне линта.
+        run: |
+          ruff check .
+          ruff format --check .
 
       - name: Run tests
         run: |
