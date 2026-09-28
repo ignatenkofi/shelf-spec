@@ -8,6 +8,12 @@
   step runs `ruff format --check .` next to `ruff check .`. The tree was
   formatted with `ruff format` first, in a separate commit with no semantic
   changes, so the new check starts green.
+- **Release gate lints as strictly as `ci.yml` (#51).** `release.yml`'s
+  "Lint with ruff" step ran only `ruff check src tests`, left that way when
+  #49 fixed `ci.yml` to keep that change scoped. A tag could reach PyPI with
+  code `ci.yml` would reject on every push or PR. The gate now runs the same
+  `ruff check .` and `ruff format --check .`, and a test compares the two
+  workflows' lint steps directly so they can't drift apart again unnoticed.
 - **Schema: `policy.patterns` is accepted.** memshelf-mcp writes
   `policy: {path: POLICY.md, patterns: POLICY.patterns}` into every manifest
   it scaffolds (since 2026-07-25; the pattern pack is read by its shelve
