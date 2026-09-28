@@ -48,7 +48,12 @@ jobs:
           test "$PKG" = "$TAG" || { echo "tag v$TAG != __version__ $PKG"; exit 1; }
 
       - name: Lint with ruff
-        run: ruff check src tests
+        # Те же две команды, что в ci.yml (см. комментарий там про то, зачем
+        # обе и почему корень, а не `src tests`) — гейт релиза не должен
+        # линтовать слабее, чем push/PR-проверка. shelf-spec#51.
+        run: |
+          ruff check .
+          ruff format --check .
 
       - name: Run tests
         run: |
