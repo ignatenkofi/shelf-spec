@@ -25,6 +25,9 @@ the production repo).
 - `docs/shelf-direction-and-channels.md` — direction of the shelf family
   (selection, ownership, provenance; pull vs push) and the outreach
   channels. In Russian.
+- `docs/research/2026-09-30-landscape-recheck.md` — landscape re-check
+  before M1 (gate of #45): prior art as of 2026-09-30, deltas to
+  ARCHITECTURE §8 and ADR 0001, go/no-go options. In Russian.
 
 ## Install
 
