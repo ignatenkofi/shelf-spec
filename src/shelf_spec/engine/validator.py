@@ -277,7 +277,7 @@ def _collect_findings(manifest: Manifest) -> list[Finding]:
             )
         )
         # Without a docs root no tree rule can run; file-level rules still can.
-        _check_ledger_policy(manifest, findings)
+        _check_ledger_policy(manifest, [], findings)
         _check_index(manifest, [], findings)
         _check_docshelf_config(manifest, findings)
         return findings
@@ -320,7 +320,7 @@ def _collect_findings(manifest: Manifest) -> list[Finding]:
         for doc in all_documents:
             _check_episode(manifest, doc, findings)
 
-    _check_ledger_policy(manifest, findings)
+    _check_ledger_policy(manifest, all_documents, findings)
     _check_index(manifest, all_documents, findings)
     _check_remote(manifest, findings)
     _check_docshelf_config(manifest, findings)
@@ -559,10 +559,12 @@ def _check_extra_dirs(manifest: Manifest, findings: list[Finding]) -> None:
             )
 
 
-def _check_ledger_policy(manifest: Manifest, findings: list[Finding]) -> None:
+def _check_ledger_policy(
+    manifest: Manifest, documents: list[Path], findings: list[Finding]
+) -> None:
     ledger = manifest.shelf_root / manifest.ledger_path
     if ledger.is_file():
-        _check_ledger_file(manifest, ledger, findings)
+        _check_ledger_file(manifest, ledger, documents, findings)
     elif manifest.profile == "memory":
         findings.append(
             Finding(
@@ -587,7 +589,9 @@ def _check_ledger_policy(manifest: Manifest, findings: list[Finding]) -> None:
         )
 
 
-def _check_ledger_file(manifest: Manifest, ledger: Path, findings: list[Finding]) -> None:
+def _check_ledger_file(
+    manifest: Manifest, ledger: Path, documents: list[Path], findings: list[Finding]
+) -> None:
     path = ledger.relative_to(manifest.shelf_root).as_posix()
     try:
         # errors="replace" keeps a non-UTF-8 ledger from aborting the run;
@@ -597,6 +601,7 @@ def _check_ledger_file(manifest: Manifest, ledger: Path, findings: list[Finding]
     except OSError:
         return
     problems: list[str] = []
+    journaled: dict[str, int] = {}  # episode_id -> first ledger line that names it
     if not lines or lines[0].split("\t") != LEDGER_HEADER:
         problems.append("header line does not match '" + "\t".join(LEDGER_HEADER) + "'")
     for n, line in enumerate(lines[1:], start=2):
@@ -606,7 +611,8 @@ def _check_ledger_file(manifest: Manifest, ledger: Path, findings: list[Finding]
         if len(cols) != len(LEDGER_HEADER):
             problems.append(f"line {n}: expected {len(LEDGER_HEADER)} tab-separated columns")
             continue
-        date, _episode_id, mode, tokens_in, digest_tokens, _notes = cols
+        date, episode_id, mode, tokens_in, digest_tokens, _notes = cols
+        journaled.setdefault(episode_id, n)
         if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
             problems.append(f"line {n}: date '{date}' is not YYYY-MM-DD")
         if mode not in LEDGER_MODES:
@@ -622,6 +628,66 @@ def _check_ledger_file(manifest: Manifest, ledger: Path, findings: list[Finding]
                 path,
                 "; ".join(problems[:10]) + ("; ..." if len(problems) > 10 else ""),
                 "fix the ledger per SPEC.md section 4.4 (notes must not contain tabs)",
+            )
+        )
+    if manifest.profile == "memory":
+        _check_ledger_against_episodes(manifest, path, journaled, documents, findings)
+
+
+def _check_ledger_against_episodes(
+    manifest: Manifest,
+    ledger_rel: str,
+    journaled: dict[str, int],
+    documents: list[Path],
+    findings: list[Finding],
+) -> None:
+    """Cross-check the journal with the episodes on disk (SPEC 4.4, 7.2 rule 5).
+
+    Two directions, two rules. A row naming an episode that exists nowhere
+    under the shelf root is `ledger-orphan-row` (warning): the journal
+    claims a shelve whose document is gone. An episode no row names is
+    `episode-without-row` (info): a SHOULD that was not followed, the same
+    tier as `no-ledger`. The lookup for the first direction is by filename
+    stem anywhere under the shelf root, not only in the scanned categories:
+    the memshelf lineage moves old episodes into an `archive/` tree while
+    their rows stay in the journal, and that is retention, not an orphan.
+    """
+    root = manifest.shelf_root
+    on_disk: set[str] = set()
+    for p in root.rglob("*.md"):
+        if ".git" in p.relative_to(root).parts:
+            continue
+        on_disk.add(p.stem)
+    orphans = [(n, eid) for eid, n in journaled.items() if eid not in on_disk]
+    if orphans:
+        orphans.sort()
+        shown = ", ".join(f"line {n}: '{eid}'" for n, eid in orphans[:10])
+        if len(orphans) > 10:
+            shown += "; ..."
+        findings.append(
+            Finding(
+                "ledger-orphan-row",
+                "warning",
+                ledger_rel,
+                f"{len(orphans)} ledger row(s) name an episode that does not exist "
+                f"anywhere under the shelf root: {shown}",
+                "restore the episode or drop the row (the journal is append-only "
+                "by convention; a purge should rewrite it with the tooling that owns it)",
+            )
+        )
+    unjournaled = sorted(doc.stem for doc in documents if doc.stem not in journaled)
+    if unjournaled:
+        shown = ", ".join(f"'{eid}'" for eid in unjournaled[:10])
+        if len(unjournaled) > 10:
+            shown += ", ..."
+        findings.append(
+            Finding(
+                "episode-without-row",
+                "info",
+                ledger_rel,
+                f"{len(unjournaled)} episode(s) have no ledger row: {shown}",
+                "append a row per shelve (SPEC 4.4); on ledger-derived shelves this "
+                "clears when the derived layer is regenerated",
             )
         )
 

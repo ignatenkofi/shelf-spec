@@ -439,3 +439,58 @@ def test_unknown_kind_is_warning_not_error(memshelf_like: Path) -> None:
     assert "episode-frontmatter-invalid" not in rules(report)
     # No section contract is enforced for a kind this validator does not know.
     assert "episode-sections-missing" not in rules(report)
+
+
+# ---------------------------------------------------- ledger ↔ episodes
+
+
+def test_ledger_row_without_episode_is_warning(memshelf_like: Path) -> None:
+    # Negative fixture for `ledger-orphan-row`: a well-formed row that names
+    # an episode absent from the whole shelf tree.
+    ledger = memshelf_like / "ledger.tsv"
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8")
+        + "2026-01-13\t2026-01-13-vanished\tlive\t900\t90\tgone\n",
+        encoding="utf-8",
+    )
+    report = validate_shelf(memshelf_like)
+    assert "ledger-orphan-row" in rules(report, "warning")
+    assert "ledger-malformed" not in rules(report)
+    finding = next(f for f in report["findings"] if f["rule"] == "ledger-orphan-row")
+    assert "2026-01-13-vanished" in finding["detail"]
+
+
+def test_archived_episode_is_not_an_orphan(memshelf_like: Path) -> None:
+    # The memshelf lineage moves old episodes to archive/ and keeps their
+    # rows: a row whose file lives outside the scanned categories is
+    # retention, not an orphan.
+    src = memshelf_like / "docs" / "topics" / "2026-01-10-fixture-topic.md"
+    dst = memshelf_like / "archive" / "docs" / "topics" / src.name
+    dst.parent.mkdir(parents=True)
+    src.rename(dst)
+    report = validate_shelf(memshelf_like)
+    assert "ledger-orphan-row" not in rules(report)
+
+
+def test_episode_without_ledger_row_is_info(memshelf_like: Path) -> None:
+    # Negative fixture for `episode-without-row`: a complete episode the
+    # journal never mentions. SHOULD-level, so info — the same tier as
+    # `no-ledger`, and the normal state between a shelve and the derived
+    # render on ledger-derived shelves.
+    doc = memshelf_like / "docs" / "topics" / "2026-01-14-unjournaled.md"
+    doc.write_text(
+        "---\nid: 2026-01-14-unjournaled\ntitle: Unjournaled\nkind: topic\n"
+        "date: 2026-01-14\napprox_tokens: 100\n---\n\n## Digest\n\nx\n\n## Decisions\n\ny\n",
+        encoding="utf-8",
+    )
+    report = validate_shelf(memshelf_like)
+    assert "episode-without-row" in rules(report, "info")
+    finding = next(f for f in report["findings"] if f["rule"] == "episode-without-row")
+    assert "2026-01-14-unjournaled" in finding["detail"]
+    assert report["verdict"] != "fail"
+
+
+def test_no_ledger_cross_rules_for_document_profile(docshelf_like: Path) -> None:
+    report = validate_shelf(docshelf_like)
+    assert "ledger-orphan-row" not in rules(report)
+    assert "episode-without-row" not in rules(report)

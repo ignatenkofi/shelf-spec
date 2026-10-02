@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Validator: the ledger is cross-checked with the episodes on disk.**
+  `_check_ledger_file` parsed `episode_id` and dropped it; a row naming a
+  deleted episode and an episode the journal never saw both validated
+  clean. Two rules close the gap (SPEC 4.4 / 9.1): `ledger-orphan-row`
+  (warning) for a row whose `<episode_id>.md` exists nowhere under the
+  shelf root — the lookup spans the whole tree so an episode retained in
+  `archive/` keeps its row without a finding — and `episode-without-row`
+  (info, the `no-ledger` tier of the same SHOULD) for an episode in a
+  scanned category that no row names. Both are memory-profile only; the
+  tests carry a negative fixture per rule plus the archive and
+  document-profile non-cases. Checked against four real shelves: the
+  reference shelf of memshelf-mcp is clean under `--strict`, the main
+  shelf on a feature branch reports only the expected info.
 - CI hygiene (#49): `ci.yml` now declares `permissions: contents: read` at
   the workflow level (no job writes), a `concurrency` group per ref that
   cancels a superseded run on a PR branch but never on `main`, and the lint
