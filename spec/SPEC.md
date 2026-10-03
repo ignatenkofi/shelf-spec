@@ -234,7 +234,9 @@ date	episode_id	mode	approx_tokens_in	digest_tokens	notes
   contain tab characters.
 
 The ledger is created with its header when missing. Memory shelves SHOULD
-append one row per shelve.
+append one row per shelve. Validators cross-check the journal with the
+episodes on disk in both directions (`ledger-orphan-row`,
+`episode-without-row`, section 9.1).
 
 ### 4.5 `POLICY.md`
 
@@ -420,6 +422,11 @@ warning:
 - `duplicate-title` — two documents in one category share a title.
 - `stale-index` — the index references missing files, or documents on
   disk are absent from the index.
+- `ledger-orphan-row` — memory profile: a ledger row names an
+  `episode_id` for which no `<episode_id>.md` exists anywhere under the
+  shelf root (section 4.4). The lookup covers the whole tree, not only
+  the scanned categories: an episode moved into a retention directory
+  such as `archive/` keeps its row and is not an orphan.
 - `remote-mismatch` — raw URLs in the index point at a different
   owner/repo than `git remote get-url origin` (offline heuristic; known
   incident class: repo renames break raw URLs).
@@ -434,6 +441,10 @@ info:
   exist on disk.
 - `no-policy` — no policy file.
 - `no-ledger` — memory profile without a ledger.
+- `episode-without-row` — memory profile: an episode in a scanned
+  category has no ledger row (section 4.4 SHOULD; the same tier as
+  `no-ledger`). On ledger-derived shelves this is the normal state
+  between a shelve and the next derived render.
 
 ### 9.2 Exit codes (CLI / CI)
 
