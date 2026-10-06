@@ -20,9 +20,11 @@
   inside the docs root, since the schema pattern knows only `/`, not a
   Windows drive, a root-relative path or a symlinked category directory.
   Every refusal is `ManifestError("manifest-invalid")`: exit 2 with
-  `config-error` from the CLI, `status: error` from MCP. Valid input
-  behaves as before: re-running `init` on copies of two live shelves is
-  still a no-op.
+  `config-error` from the CLI, `status: error` from MCP. Schema-valid
+  input behaves as before on a shelf without symlinked category
+  directories: re-running `init` on copies of two live shelves is still a
+  no-op. A category directory symlinked outside the docs root, named in
+  `--categories`, is now refused where it used to be skipped.
 
 ## 0.3.0 (2026-10-06)
 

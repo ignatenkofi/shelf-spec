@@ -199,3 +199,21 @@ def test_containment_check_backs_up_the_schema(
         init_shelf(tmp_path / "nest" / "shelf", categories=["../../escaped"])
     assert "outside the docs root" in excinfo.value.detail
     assert _tree(tmp_path) == []
+
+
+def test_init_on_existing_shelf_refuses_symlinked_category(tmp_path: Path) -> None:
+    # The containment layer on the existing-manifest branch: a declared
+    # category directory symlinked outside docs_root passes the schema gate
+    # (the name is fine) and is refused only by resolve(). Refusing it, not
+    # skipping it as before, is the owner decision named in the PR.
+    root = tmp_path / "shelf"
+    init_shelf(root, categories=["topics"])
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (root / "docs" / "topics").rmdir()
+    (root / "docs" / "topics").symlink_to(outside, target_is_directory=True)
+    before = _tree(tmp_path)
+    with pytest.raises(ManifestError) as excinfo:
+        init_shelf(root, categories=["topics"])
+    assert "outside the docs root" in excinfo.value.detail
+    assert _tree(tmp_path) == before
