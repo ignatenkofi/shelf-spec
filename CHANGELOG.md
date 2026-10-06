@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.3.0 (2026-10-06)
+
+- **schema: `policy.patterns` — the minimum for memshelf shelves.** Every
+  manifest memshelf-mcp scaffolds carries the key, and 0.2.0 rejects it as
+  a config-error (exit 2), so 0.2.0 cannot validate a live memshelf shelf
+  at all; this release is the first that can. Details in the schema entry
+  below.
 - **SPEC revision 0.2 — the document catches up with the shelves (#55,
   items 1, 2, 4, 5).** The header reads `Version: 0.2`; the format is
   unchanged and shelves keep `spec_version: "0.1"` (section 11 says why).
