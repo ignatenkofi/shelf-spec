@@ -68,6 +68,17 @@ def test_flat_call_shelf_init(tmp_path: Path) -> None:
     assert report["verdict"] == "valid"
 
 
+def test_shelf_init_refuses_category_outside_docs_root(tmp_path: Path) -> None:
+    # `categories` is a plain list[str] in the input schema; the engine gate
+    # is what keeps an agent's "../../escaped" from becoming a directory.
+    root = tmp_path / "nest" / "shelf"
+    payload = _call("shelf_init", {"shelf_path": str(root), "categories": ["../../escaped"]})
+    assert payload["status"] == "error"
+    assert payload["verdict"] == "config-error"
+    assert payload["rule"] == "manifest-invalid"
+    assert list(tmp_path.rglob("*")) == []
+
+
 def test_config_error_still_reported_as_json(tmp_path: Path) -> None:
     report = _call("shelf_validate", {"shelf_path": str(tmp_path)})
     assert report["verdict"] == "config-error"

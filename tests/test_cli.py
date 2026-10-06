@@ -107,6 +107,14 @@ def test_init_then_validate_roundtrip(tmp_path: Path, capsys) -> None:
     assert main(["validate", str(shelf)]) == 0
 
 
+def test_init_bad_category_is_config_error(tmp_path: Path, capsys) -> None:
+    shelf = tmp_path / "nest" / "shelf"
+    assert main(["init", str(shelf), "--categories", "../../escaped"]) == 2
+    assert "config-error (manifest-invalid)" in capsys.readouterr().err
+    # Refused before any write: no shelf, nothing next to it.
+    assert list(tmp_path.rglob("*")) == []
+
+
 def test_info_exit_codes(memshelf_like: Path, tmp_path: Path, capsys) -> None:
     assert main(["info", str(memshelf_like)]) == 0
     assert main(["info", str(tmp_path)]) == 2

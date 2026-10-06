@@ -5,7 +5,8 @@ Everything that already exists is left untouched and reported in
 shelf validates clean: manifest, docs root, categories, policy stub,
 ``.gitignore``, a minimal hand-maintained index (``generated_by: manual``
 until a generator takes over), and — for the memory profile — a ledger
-with its header.
+with its header. The request is checked against ``shelf.schema.json``
+before the first write, so a refused call leaves nothing behind.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+import jsonschema
 import yaml
 
 from shelf_spec.engine.fsutil import atomic_write_text
@@ -22,7 +24,9 @@ from shelf_spec.engine.manifest import (
     DEFAULT_LEDGER_PATH,
     DEFAULT_POLICY_PATH,
     MANIFEST_FILENAME,
+    ManifestError,
     load_manifest,
+    load_schema,
 )
 from shelf_spec.engine.validator import LEDGER_HEADER
 
@@ -57,6 +61,18 @@ __pycache__/
 """
 
 
+def _check_schema(candidate: dict[str, Any], what: str) -> None:
+    """Raise ``manifest-invalid`` unless ``candidate`` passes shelf.schema.json."""
+    validator = jsonschema.Draft202012Validator(load_schema())
+    errors = sorted(validator.iter_errors(candidate), key=lambda e: list(e.absolute_path))
+    if errors:
+        details = "; ".join(
+            f"{'/'.join(str(p) for p in err.absolute_path) or '<root>'}: {err.message}"
+            for err in errors
+        )
+        raise ManifestError("manifest-invalid", f"{what} fails shelf.schema.json: {details}")
+
+
 def init_shelf(
     path: Path | str,
     *,
@@ -78,8 +94,13 @@ def init_shelf(
     config-error: init refuses rather than build on a broken contract.
 
     Raises:
-        ManifestError: when ``path`` holds a ``shelf.yml`` that does not parse
-            or fails ``shelf.schema.json`` (rule ``manifest-invalid``).
+        ManifestError: rule ``manifest-invalid`` when ``path`` holds a
+            ``shelf.yml`` that does not parse or fails ``shelf.schema.json``,
+            or when the request would break the contract: a new manifest
+            that fails the schema (a category with ``/`` or ``..``, an
+            absolute or duplicate one, an unknown mode), a category the
+            existing manifest does not declare, or one that resolves outside
+            the docs root. All of it is checked before the first write.
     """
     root = Path(path).expanduser().resolve()
     categories = list(categories or [])
@@ -89,23 +110,40 @@ def init_shelf(
     def track(relative: str, existed: bool) -> None:
         (skipped if existed else created).append(relative)
 
-    root.mkdir(parents=True, exist_ok=True)
-
+    # Every check below runs before the first write, root.mkdir included:
+    # a refused request must not leave a half-scaffolded shelf behind.
     manifest_path = root / MANIFEST_FILENAME
+    manifest: dict[str, Any] | None = None
     if manifest_path.exists():
         # Honour the declared contract; load_manifest raises ManifestError
         # (manifest-invalid) on unparseable/schema-invalid, so init refuses
         # instead of scaffolding onto a broken manifest.
         existing = load_manifest(root)
+        if categories:
+            # The requested names pass the same gate as a new declaration
+            # (no '/', no '..', no duplicates)...
+            _check_schema(
+                {**existing.raw, "categories": categories},
+                "shelf.yml with the requested categories",
+            )
+            # ...and, when the manifest declares its categories, must be among
+            # them: a directory it does not declare is category-undeclared.
+            undeclared = [c for c in categories if c not in existing.categories]
+            if existing.categories and undeclared:
+                raise ManifestError(
+                    "manifest-invalid",
+                    f"categories not declared in shelf.yml: {', '.join(undeclared)} "
+                    f"(declared: {', '.join(existing.categories)}); init fills only "
+                    "what the manifest declares — add them to shelf.yml first",
+                )
         docs_root_rel = existing.docs_root
         index_rel = existing.index_path
         # Only fill artefacts the manifest actually declares — an adopted
         # shelf that omits a policy/ledger block never gets a stray stub.
         policy_rel = existing.policy_path if "policy" in existing.raw else None
         ledger_rel = existing.ledger_path if "ledger" in existing.raw else None
-        track(MANIFEST_FILENAME, existed=True)
     else:
-        manifest: dict[str, Any] = {
+        manifest = {
             "spec_version": "0.1",
             "mode": mode,
         }
@@ -121,17 +159,33 @@ def init_shelf(
         if profile == "memory":
             manifest["ledger"] = {"path": DEFAULT_LEDGER_PATH}
         manifest["policy"] = {"path": DEFAULT_POLICY_PATH}
-        atomic_write_text(
-            manifest_path,
-            yaml.safe_dump(manifest, sort_keys=False, allow_unicode=True),
-        )
+        _check_schema(manifest, "the new shelf.yml")
         docs_root_rel = DEFAULT_DOCS_ROOT
         index_rel = DEFAULT_INDEX_PATH
         policy_rel = DEFAULT_POLICY_PATH
         ledger_rel = DEFAULT_LEDGER_PATH if profile == "memory" else None
-        track(MANIFEST_FILENAME, existed=False)
 
     docs_root = root / docs_root_rel
+    # Defence in depth: the schema pattern knows only '/', not a Windows
+    # drive or backslash, nor a category directory symlinked elsewhere.
+    docs_root_resolved = docs_root.resolve()
+    for category in categories:
+        if not (docs_root / category).resolve().is_relative_to(docs_root_resolved):
+            raise ManifestError(
+                "manifest-invalid",
+                f"category {category!r} resolves outside the docs root {docs_root_rel!r}",
+            )
+
+    root.mkdir(parents=True, exist_ok=True)
+    if manifest is None:
+        track(MANIFEST_FILENAME, existed=True)
+    else:
+        atomic_write_text(
+            manifest_path,
+            yaml.safe_dump(manifest, sort_keys=False, allow_unicode=True),
+        )
+        track(MANIFEST_FILENAME, existed=False)
+
     track(f"{docs_root_rel}/", existed=docs_root.is_dir())
     docs_root.mkdir(parents=True, exist_ok=True)
     for category in categories:
