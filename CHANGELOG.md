@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+## 0.3.0 (2026-10-06)
+
+- **schema: `policy.patterns` — the minimum for memshelf shelves.** Every
+  manifest memshelf-mcp scaffolds carries the key, and 0.2.0 rejects it as
+  a config-error (exit 2), so 0.2.0 cannot validate a live memshelf shelf
+  at all; this release is the first that can. Details in the schema entry
+  below.
+- **SPEC revision 0.2 — the document catches up with the shelves (#55,
+  items 1, 2, 4, 5).** The header reads `Version: 0.2`; the format is
+  unchanged and shelves keep `spec_version: "0.1"` (section 11 says why).
+  Section 4.4 now describes the ledger's two forms — the appended journal
+  and the **derived** ledger rendered from episode frontmatter
+  (memshelf-mcp#58), with the column mapping and the rule that a conflict
+  is resolved by re-rendering; sections 1, 7 and 8 are reworded to cover
+  both. New section 2.2 names `archive/` as the retention sub-shelf with
+  its own index and the rollup episode as a digest of digests, both of
+  which the validator already accepted (`ledger-orphan-row` looks into the
+  archive). `reserved-m1` is listed in 9.1 at `info` and named from
+  sections 6 and 10. Section 5.2 says validators ignore unknown
+  frontmatter keys and lists the ones live shelves carry. Retention
+  (`retain_until`, purge — item 3) is recorded as implementation-defined
+  with the owner's decision still open in #55, so the issue stays open.
+  `CONTRIBUTING.md` is new: a format change in memshelf-mcp or
+  docshelf-mcp opens an issue here before or with its PR, plus the local
+  check list. `ARCHITECTURE.md` §10 item 5 records that the spec lives in
+  its own repository (done in M0).
+- `uv.lock` is ignored: `uv run` writes it on every call and the project
+  is pip/pyproject only.
 - **Validator: the ledger is cross-checked with the episodes on disk.**
   `_check_ledger_file` parsed `episode_id` and dropped it; a row naming a
   deleted episode and an episode the journal never saw both validated

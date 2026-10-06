@@ -1,6 +1,6 @@
 # shelf-spec v0
 
-Version: 0.1 (descriptive)
+Version: 0.2 (descriptive; revision of 0.1 — same format, see section 11)
 Status: draft, extracted from working shelves
 License: MIT
 
@@ -34,7 +34,13 @@ around. Incompatible changes bump the major version (semver).
   loads whole.
 - **Split document** — a large document mirrored as per-section files in a
   sibling directory.
-- **Ledger** — the append-only journal of shelve operations (`ledger.tsv`).
+- **Ledger** — the journal of shelve operations (`ledger.tsv`): one row per
+  episode, either appended by the writer or rendered from the episodes
+  (section 4.4).
+- **Archive** — the retention sub-shelf (`archive/`) a memory shelf MAY
+  keep for episodes folded out of the index (section 2.2).
+- **Rollup** — an episode whose digest stands in for a period of archived
+  episodes — a digest of digests (section 2.2).
 - **Policy** — the shelf's redaction/PII rules (`POLICY.md`).
 - **Zone / lease / provenance** — multi-agent concepts, *reserved* for M1
   (section 10).
@@ -53,8 +59,12 @@ around. Incompatible changes bump the major version (semver).
 │           ├── 001-<section>.md
 │           ├── 002-<section>.md
 │           └── SUBINDEX.md        # per-document navigation (optional)
-├── ledger.tsv                     # memory profile SHOULD
+├── ledger.tsv                     # memory profile SHOULD (journal or derived, 4.4)
 ├── POLICY.md                      # SHOULD (memory), MAY (document)
+├── POLICY.patterns                # MAY (memory): machine-readable patterns (4.5)
+├── archive/                       # MAY (memory): retention sub-shelf (2.2)
+│   ├── INDEX.md                   #   its own catalog
+│   └── <docs_root>/<category>/    #   archived episodes, same layout
 ├── .docshelf.json                 # implementation config — ALLOWED
 ├── CLAUDE.md, .claude/skills/     # client adapters — ALLOWED, not normated
 ├── agents.yml                     # RESERVED (M1)
@@ -78,6 +88,10 @@ Rules:
 - Client-specific adapters (`CLAUDE.md`, skills, prompts) are ALLOWED at
   the root; this spec does not constrain their content, but see section 8
   for the rules they historically carried that now live here.
+- A memory shelf MAY keep an `archive/` sub-shelf (section 2.2). It lives
+  at the shelf root, outside the docs root, so it is not a category: the
+  tree and profile rules (sections 5 and 9.1) do not scan it, and only
+  the whole-tree lookup of `ledger-orphan-row` reaches into it.
 
 ### 2.1 Profiles
 
@@ -91,6 +105,44 @@ The `profile` manifest field selects which rule set applies:
   Lineage: docshelf.
 
 Default profile: `document`.
+
+### 2.2 Archive and rollup (memory profile)
+
+Live memory shelves grow until the index stops being cheap to load whole.
+The memshelf lineage answers this with a **rollup**: a period's episodes
+are moved from `<docs_root>/<category>/` into the same category under
+`archive/<docs_root>/`, and one new episode — the rollup — takes their
+place in the index with a digest of their digests.
+
+- `archive/` is a **sub-shelf**: it keeps its own `INDEX.md` (and, in the
+  reference implementation, its own `.docshelf.json`), generated like the
+  main index and never hand-edited (section 4.1). It has no manifest of
+  its own — the root `shelf.yml` covers it.
+- Archived episodes keep their `id`, their frontmatter and their ledger
+  row (section 4.4): recall by id and search MUST still reach them. An
+  archived episode is retention, not deletion — `ledger-orphan-row` looks
+  for an episode anywhere under the shelf root (section 9.1).
+- The rollup is an ordinary episode of the category it summarizes (on live
+  shelves `kind: topic`, tagged `rollup`, with `approx_tokens: 0`), so the
+  frontmatter and section contracts of section 5 apply to it unchanged.
+  Its digest is the caller's synthesis, not generated prose; it SHOULD
+  name the period and the number of episodes folded in, and it SHOULD
+  carry the absorbed episodes' keywords so that navigation from the index
+  still finds them. The body MAY add an `## Archived` section listing the
+  archived ids with a link to `archive/INDEX.md`.
+- Which episodes are rolled up, when, and how the rollup digest is
+  written are the implementation's and the owner's calls; this document
+  fixes only the layout above, which v0 validators already accept.
+
+**Retention.** The reference implementation also offers *purge*: deleting
+episodes whose per-episode `retain_until` date has passed, then
+re-rendering the derived files. Neither the `retain_until` frontmatter key
+nor the purge semantics are normative in this revision: they are
+**implementation-defined**, and the decision whether they enter the spec
+(as a `retain_until` field in section 5.2 plus a rule in section 8) or
+stay outside it is the owner's, open in shelf-spec#55. Until then
+validators MUST ignore `retain_until` (section 5.2 — unknown keys are
+ignored) and MUST NOT delete anything.
 
 **Forward compatibility.** The profile value set is OPEN across spec
 revisions: later revisions may register new profiles (with their own rule
@@ -110,8 +162,10 @@ The manifest is a YAML file at the shelf root. Its schema is
 [`shelf.schema.json`](shelf.schema.json) (JSON Schema draft 2020-12) — the
 schema is the normative field list; this section describes intent.
 
-- `spec_version` (REQUIRED) — spec version the shelf declares, `"0.1"` for
-  v0.
+- `spec_version` (REQUIRED) — spec version the shelf declares. `"0.1"` and
+  `"0.2"` both name this document: 0.2 is an editorial revision of 0.1
+  with no format change (section 11), so an existing shelf keeps `"0.1"`
+  and stays conformant.
 - `mode` (REQUIRED) — `single` (all of v0) or `multi` (reserved, M1).
 - `name` — human-readable shelf name.
 - `profile` — `memory` | `document` (section 2.1); other values are
@@ -234,9 +288,38 @@ date	episode_id	mode	approx_tokens_in	digest_tokens	notes
   contain tab characters.
 
 The ledger is created with its header when missing. Memory shelves SHOULD
-append one row per shelve. Validators cross-check the journal with the
+have one row per episode. Validators cross-check the ledger with the
 episodes on disk in both directions (`ledger-orphan-row`,
 `episode-without-row`, section 9.1).
+
+**Two ways to keep it.** The file contract above is the same in both; the
+difference is who writes the row and when.
+
+- **Journal** — the writer appends one row per shelve, in the same commit
+  as the episode (`shelve: <id>`). The file is append-only by convention;
+  a row is never rewritten. This is the original memshelf form and the one
+  a shelf without a derived-render step uses.
+- **Derived** — the row's data lives in the episode's frontmatter and the
+  ledger is **rendered** from the episodes (the reference implementation's
+  `rebuild`, memshelf-mcp#58): `date`, `episode_id`, `mode`,
+  `approx_tokens_in` and `notes` come from the frontmatter (`date` falls
+  back to the date prefix of the `id`; `mode` defaults to `live`), and
+  `digest_tokens` is recomputed from the `## Digest` body. The render
+  covers the archive too, so an archived episode keeps its row. A shelve
+  then writes **only the episode**; the ledger, the index, `.meta.json`
+  and any other derived file are re-rendered afterwards — by the shelf's
+  bot on the main branch, or by the writer when the shelf has no bot
+  (section 4.1 already treats the index this way). Between a shelve and
+  the next render an episode has no row; `episode-without-row` reports
+  that at `info` and clears on the render. The ledger has no independent
+  truth in this form: a conflict between two copies is resolved by
+  re-rendering, never by merging.
+
+A shelf's manifest does not declare which form it uses; the file
+validates the same either way, and `episode-without-row` stays `info`
+in both — a journaling shelf that forgot a row and a derived shelf
+waiting for a render look alike to the validator. Rule 5 of section 8
+and item 5 of section 7 are phrased to cover both.
 
 ### 4.5 `POLICY.md`
 
@@ -300,6 +383,11 @@ accept both placements (byte 0 and after-H1).
 - `tags` (REQUIRED) — YAML flow list of strings.
 - `approx_tokens` (REQUIRED) — integer, in-window cost estimate (chars/4).
 - `mode` (OPTIONAL) — `live` | `import`; absent on some live episodes.
+- Other keys MAY be present — live shelves carry `date` (the shelve date,
+  source of the derived ledger row, section 4.4), `notes`, `display_title`,
+  `description` and `keywords` (rollups, section 2.2), and the
+  implementation-defined `retain_until` (section 2.2). Validators MUST
+  ignore keys they do not know.
 
 ### 5.3 Sections
 
@@ -329,7 +417,8 @@ the memshelf convention; memory shelves SHOULD follow it.
 - `mode: single` — one client/agent writes at a time. All of v0.
 - `mode: multi` — a shared multi-agent shelf: zones, leases, provenance.
   RESERVED; v0 tooling MUST accept the manifest (schema-valid) and SHOULD
-  report multi mode as "reserved for M1" rather than fail.
+  report multi mode as "reserved for M1" rather than fail — the finding
+  `reserved-m1` at `info` (section 9.1).
 
 ## 7. Integration requirements for clients
 
@@ -347,8 +436,11 @@ A client (MCP host, IDE agent, chat app) that attaches a shelf:
    only the needed document or its section — never bulk-load episodes.
 3. MUST read and apply `POLICY.md` before any write (when present).
 4. MUST NOT edit the index by hand (`generated_by != manual`).
-5. SHOULD append a ledger row for every shelve on a memory shelf and
-   commit with the message `shelve: <id>`.
+5. SHOULD commit every shelve on a memory shelf as `shelve: <id>`, and
+   SHOULD see that the episode gets its ledger row — appended in that
+   commit on a journaling shelf, or rendered from the episode on a
+   derived shelf (section 4.4). On a derived shelf with a bot the client
+   MUST NOT render and commit the derived files by hand to get there.
 6. MUST NOT commit raw transcripts or import sources — only episodes.
 
 ## 8. Normative rules
@@ -361,8 +453,9 @@ A client (MCP host, IDE agent, chat app) that attaches a shelf:
    input only; episodes are the only durable artifact.
 4. **Redaction pass before write** (SHOULD, memory) — apply `POLICY.md`;
    credential-shaped strings become `redacted:<kind>`.
-5. **Every shelve is journaled** (SHOULD, memory) — one `ledger.tsv` row +
-   one commit `shelve: <id>`.
+5. **Every shelve is journaled** (SHOULD, memory) — one commit
+   `shelve: <id>` and one `ledger.tsv` row, appended by the writer or
+   rendered from the episode (section 4.4).
 6. **Provenance on every write** (MUST in multi mode — M1, reserved).
 7. **Recall discipline** (SHOULD, client) — index whole, episodes
    pointwise.
@@ -445,6 +538,10 @@ info:
   category has no ledger row (section 4.4 SHOULD; the same tier as
   `no-ledger`). On ledger-derived shelves this is the normal state
   between a shelve and the next derived render.
+- `reserved-m1` — the manifest uses the surface reserved for M1
+  (section 10): `mode: multi`, or an `agents` / `provenance` block in
+  single mode. The manifest is accepted; v0 tooling enforces nothing
+  behind it (no zones, leases or provenance). No action needed.
 
 ### 9.2 Exit codes (CLI / CI)
 
@@ -457,7 +554,9 @@ info:
 ## 10. Reserved for M1+ (non-normative sketches)
 
 These fields are **reserved**: the v0 schema accepts them, v0 tooling
-ignores them in single mode and flags them as "reserved" in multi mode.
+ignores them in single mode and flags them with the `info` finding
+`reserved-m1` (section 9.1) — in multi mode, and in single mode when they
+are present.
 The sketches below are non-normative and may change before M1; semver
 discipline applies (incompatible change = major bump).
 
@@ -511,6 +610,16 @@ unattributed content. All M1+.
   clarifying the spec (ADR-0005).
 - Incompatible format changes bump the major version. Additive fields
   (like the reserved M1 blocks) are minor.
+- Revisions of this document that change no on-disk contract (0.2: the
+  derived ledger, `archive/` and rollups, `reserved-m1`, the open
+  retention question — all describing what live shelves and the validator
+  already did) bump the document's minor version only. Shelves do not
+  re-declare `spec_version` for such a revision; the reference scaffolder
+  and the examples keep `"0.1"`.
+- Changes to the format start in the implementations and reach the spec
+  through an issue here before or with the PR that ships them — the rule
+  of [`CONTRIBUTING.md`](../CONTRIBUTING.md). The 0.1 → 0.2 gap
+  (shelf-spec#55) is what happens without it.
 - The reference implementation (docshelf-mcp) validates against this spec
   in its CI; existing shelves stay valid by the one-file compatibility
   promise (section 3).

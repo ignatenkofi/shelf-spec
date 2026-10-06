@@ -19,3 +19,7 @@ htmlcov/
 Thumbs.db
 *.swp
 * 2.*
+
+# uv's lockfile is not part of this project (pip/pyproject only, as in
+# docshelf-mcp); `uv run` writes it on every invocation
+uv.lock
