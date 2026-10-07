@@ -20,12 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
       - name: Install shelf-spec
-        run: pip install "shelf-spec>=0.2,<0.3"
+        run: pip install "shelf-spec>=0.3,<0.4"
 
       - name: Validate shelf against shelf-spec
         run: shelf-spec validate --ci .
@@ -50,7 +50,7 @@ two weeks, the check said green, and green is what people look at.
 `shelf-spec` is a public repository and the package is on PyPI, so both
 ways to install it work from any repository's Actions with no secret:
 
-- **Published release** (the job above): `pip install "shelf-spec>=0.2,<0.3"`.
+- **Published release** (the job above): `pip install "shelf-spec>=0.3,<0.4"`.
   What a shelf should use — it validates against a known revision.
 - **Tip of `main`**: `pip install "git+https://github.com/ignatenkofi/shelf-spec.git"`.
   For exactly one consumer: `docshelf-mcp`'s conformance job, which checks

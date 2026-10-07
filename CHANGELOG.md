@@ -94,6 +94,15 @@
   category, and for the category `.`. SPEC 11: this narrows the set of
   valid manifests, a format change; both live shelves and the spec
   examples still validate. Minor or major is the owner's call.
+- **`docs/advisory-ci.md` installs the current release (#62).** Both
+  install lines still said `shelf-spec>=0.2,<0.3` after 0.3.0 shipped, so
+  a shelf that copied the job got 0.2.x, without `ledger-orphan-row` and
+  `episode-without-row`; the job's `actions/setup-python@v6` lagged the
+  repository's own workflows. Now `>=0.3,<0.4` (on PyPI it resolves to
+  0.3.0, which validates both live shelves with 0 findings) and `@v7`.
+  A test reads the page's pins and requires each to admit `__version__`
+  and stop before the next minor, so the next release that bumps the
+  version without the page fails in CI.
 
 ## 0.3.0 (2026-10-06)
 
