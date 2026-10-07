@@ -55,6 +55,20 @@
   rules on both sides). SPEC 11: exit code 3 is additive and the `kind`
   narrowing touches no live shelf; whether this is a minor revision of the
   document is the owner's call.
+- **Release: a manual run from a branch no longer publishes, and the wheel
+  is smoke-tested before upload (#61).** `release.yml` also runs on
+  `workflow_dispatch`, and `publish-pypi` had no condition of its own: from
+  a branch, the gate skips its tag == `__version__` step, so nothing
+  stood between that run and PyPI. `publish-pypi` now runs on tag refs
+  only, the condition of that step and of `github-release`; a manual run
+  from a tag (a retry) still publishes behind the same check. `build`
+  installs the wheel it built into a venv in `$RUNNER_TEMP` — outside the
+  checkout, whose `spec/` `load_schema` would otherwise fall back to — and
+  runs `--version`, `init` and `validate --ci` before the upload: a wheel
+  that lost its `force-include`d schema used to pass `twine check` and
+  every test. Tests: the publishing condition as a truth table over the
+  refs a run can start from, evaluated from the workflow's own `if:`
+  strings, and the smoke step's place and shape.
 
 ## 0.3.0 (2026-10-06)
 

@@ -40,7 +40,8 @@ jobs:
       - name: Tag matches package version
         # Только для тегов: у workflow_dispatch GITHUB_REF_NAME — имя ветки,
         # сравнивать не с чем, а ручной прогон сборки должен остаться
-        # возможным. Публикацию с ветки этот шаг не сторожит и не сторожил.
+        # возможным. Публикацию с ветки сторожит не этот шаг, а `if:` джобы
+        # publish-pypi — то же условие, что здесь (shelf-spec#61).
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           PKG=$(python -c "import shelf_spec; print(shelf_spec.__version__)")
@@ -98,6 +99,25 @@ jobs:
           python -m pip install twine
           twine check dist/*
 
+      - name: Smoke-test the wheel outside the checkout
+        # twine check reads metadata, not the package. The wheel carries the
+        # schema only through force-include (pyproject.toml), and load_schema
+        # falls back to the repo's spec/ when the packaged copy is missing —
+        # so tests in the checkout or an editable install stay green on a
+        # wheel without it, and only a PyPI user would meet the breakage. A
+        # clean venv in RUNNER_TEMP with the built wheel and nothing else
+        # meets the package as that user does; init and validate both load
+        # the schema (shelf-spec#61). Failing here stops the job before the
+        # upload, and publish-pypi needs it.
+        run: |
+          SMOKE="$RUNNER_TEMP/wheel-smoke"
+          python -m venv "$SMOKE/venv"
+          "$SMOKE/venv/bin/python" -m pip install --quiet dist/*.whl
+          cd "$SMOKE"
+          "$SMOKE/venv/bin/shelf-spec" --version
+          "$SMOKE/venv/bin/shelf-spec" init "$SMOKE/shelf" --profile memory --categories topics
+          "$SMOKE/venv/bin/shelf-spec" validate --ci "$SMOKE/shelf"
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -117,6 +137,12 @@ jobs:
     # workflow конкретного репозитория; раннер здесь роли не играет.
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Tag refs only, as github-release below. The tag == __version__ step
+    # in gate runs under the same condition, so whatever reaches PyPI went
+    # through it: a tag push, or a manual run started from a tag (a retry).
+    # A manual run from a branch builds and smoke-tests, then stops here —
+    # before this, nothing in the workflow kept it off PyPI (shelf-spec#61).
+    if: startsWith(github.ref, 'refs/tags/')
     needs: build
     environment:
       name: pypi
