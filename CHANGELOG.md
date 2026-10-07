@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- **`init` / `shelf_init` check categories before writing anything.** The
+  scaffolder wrote `shelf.yml` without checking it against
+  `shelf.schema.json` and handed each category name straight to `mkdir`.
+  `--categories ../../escaped` exited 0 with a schema-invalid manifest and
+  created a directory outside the shelf root; an absolute name created
+  that absolute directory; `a/b` crashed with `FileNotFoundError` after
+  `shelf.yml` and `docs/` were already written; `a,a` wrote a manifest
+  that fails `uniqueItems`. The MCP tool takes a plain `list[str]`, so an
+  agent could reach the same `mkdir`. The new manifest is now validated
+  before the first write, the shelf root's `mkdir` included, and
+  duplicates are refused, not silently deduplicated. On an existing
+  manifest the requested names pass the same gate; when the manifest
+  declares its categories, a name it does not declare is refused too,
+  because creating it would only make `validate` fail with
+  `category-undeclared`. As defence in depth each category must resolve
+  inside the docs root, since the schema pattern knows only `/`, not a
+  Windows drive, a root-relative path or a symlinked category directory.
+  Every refusal is `ManifestError("manifest-invalid")`: exit 2 with
+  `config-error` from the CLI, `status: error` from MCP. Schema-valid
+  input behaves as before on a shelf without symlinked category
+  directories: re-running `init` on copies of two live shelves is still a
+  no-op. A category directory symlinked outside the docs root, named in
+  `--categories`, is now refused where it used to be skipped.
+
 ## 0.3.0 (2026-10-06)
 
 - **schema: `policy.patterns` — the minimum for memshelf shelves.** Every
