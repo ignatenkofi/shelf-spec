@@ -83,6 +83,8 @@ def _type_name(value: Any) -> str:
         return "a list"
     if isinstance(value, dict):
         return "a mapping"
+    if isinstance(value, str):
+        return "a string"
     return f"a {type(value).__name__}"
 
 
@@ -882,12 +884,13 @@ def _check_docshelf_config(manifest: Manifest, findings: list[Finding]) -> None:
     impl_name = data.get("name", "")
     if manifest.name and impl_name and manifest.name != impl_name:
         conflicts.append(f"name: shelf.yml '{manifest.name}' vs .docshelf.json '{impl_name}'")
-    impl_order = data.get("category_order") or []
-    if manifest.categories and impl_order:
+    impl_order = data.get("category_order")
+    if manifest.categories and impl_order is not None:
         # The field overlaps shelf.yml `categories`, so a value that cannot be
         # compared with it is a disagreement too (as a non-string `name` is
         # above) — never a set() of unhashables or a join of non-strings
-        # (shelf-spec#59).
+        # (shelf-spec#59). Any non-list counts, the falsy ones (0, false, "",
+        # {}) included; only null reads as the key being absent.
         if not isinstance(impl_order, list):
             conflicts.append(
                 f"category_order is {_type_name(impl_order)}, not a list of category names"

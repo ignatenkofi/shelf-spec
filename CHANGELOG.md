@@ -34,9 +34,13 @@
   Each is now type-checked and reported by the rule that already owns the
   file: `corrupt-meta` (warning; the filename stands in for the title),
   `episode-frontmatter-invalid` (error), `docshelf-config-conflict`
-  (warning). One verdict narrows: a numeric or boolean `kind` was the
-  warning `episode-kind-unknown` and is now the error, like an empty one —
-  a newer revision adds kind names, not kind types (SPEC 5.2, 9.1). The
+  (warning). `category_order` itself had the same gap: a number there
+  raised too, a string or a mapping was compared as its letters or its
+  keys, and `0`, `false`, `""` or `{}` passed as if the key were absent;
+  any value but a list or `null` is now that warning. One verdict
+  narrows: a numeric or boolean `kind` was the warning
+  `episode-kind-unknown` and is now the error, like an empty one — a
+  newer revision adds kind names, not kind types (SPEC 5.2, 9.1). The
   same class sat in both YAML readers: PyYAML raises a plain
   `ValueError`/`KeyError`/`AttributeError`, not `YAMLError`, for a value it
   cannot build — an impossible date such as `span: 2026-02-30`, `!!int
@@ -47,14 +51,15 @@
   turn into a finding exits **3** with `internal-error (<type>): …` on
   stderr and no report (SPEC 9.2, README, `docs/advisory-ci.md`); a
   `ManifestError` that reaches `main()` keeps exit 2. Tests: the issue's
-  reproduction through the CLI, four sites × ten wrong-typed values, the
-  values YAML cannot build in an episode and in `shelf.yml`, exit 3
-  in-process and as a real process status, `no-policy` with its negative
-  and positive fixtures, and a reconciliation of SPEC 9.1 with the rule
-  ids and severities the engine emits, read from the source by `ast` (26
-  rules on both sides). SPEC 11: exit code 3 is additive and the `kind`
-  narrowing touches no live shelf; whether this is a minor revision of the
-  document is the owner's call.
+  reproduction through the CLI, four sites × ten wrong-typed values, nine
+  `category_order` values that are not a list, the values YAML cannot
+  build in an episode and in `shelf.yml`, exit 3 in-process and as a real
+  process status, `no-policy` with its negative and positive fixtures,
+  and a reconciliation of SPEC 9.1 with the rule ids and severities the
+  engine emits, read from the source by `ast` (26 rules on both sides).
+  SPEC 11: exit code 3 is additive and the `kind` narrowing touches no
+  live shelf; whether this is a minor revision of the document is the
+  owner's call.
 - **Release: a manual run from a branch no longer publishes, and the wheel
   is smoke-tested before upload (#61).** `release.yml` also runs on
   `workflow_dispatch`, and `publish-pypi` had no condition of its own: from

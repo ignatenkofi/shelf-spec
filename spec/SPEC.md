@@ -218,7 +218,7 @@ implementation detail.** Where the two overlap (e.g. `name`,
 `categories`/`category_order`), a disagreement is a validator *warning*
 (`docshelf-config-conflict`), not an error. An overlapping value that
 cannot be compared — a `category_order` that is not a list of category
-names — is reported the same way.
+names; `null` counts as an absent key — is reported the same way.
 
 ## 4. File contracts
 

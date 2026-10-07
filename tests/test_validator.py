@@ -599,6 +599,52 @@ def test_wrong_type_is_a_finding_not_a_crash(memshelf_like: Path, site: str, val
     assert report["verdict"] == ("violations" if severity == "error" else "valid")
 
 
+def _set_category_order(shelf: Path, value: Any) -> None:
+    impl = shelf / ".docshelf.json"
+    data = json.loads(impl.read_text(encoding="utf-8"))
+    data["category_order"] = value
+    impl.write_text(json.dumps(data), encoding="utf-8")
+
+
+#: `category_order` itself not a list -> the type name the finding must give.
+#: Truthy values used to reach `set()`: a number raised, a string split into
+#: its letters and a mapping into its keys (`{"topics": 1}` agreed with the
+#: manifest). The falsy ones were read as an absent key and passed silently.
+NOT_A_LIST_ORDER: dict[str, tuple[Any, str]] = {
+    "integer": (1, "an integer"),
+    "true": (True, "a boolean"),
+    "float": (1.5, "a float"),
+    "string": ("topics", "a string"),
+    "mapping": ({"topics": 1}, "a mapping"),
+    "integer-zero": (0, "an integer"),
+    "false": (False, "a boolean"),
+    "string-empty": ("", "a string"),
+    "mapping-empty": ({}, "a mapping"),
+}
+
+
+@pytest.mark.parametrize("case", sorted(NOT_A_LIST_ORDER))
+def test_category_order_that_is_not_a_list_is_a_conflict(memshelf_like: Path, case: str) -> None:
+    value, type_name = NOT_A_LIST_ORDER[case]
+    _set_category_order(memshelf_like, value)
+    report = validate_shelf(memshelf_like)
+    assert report["status"] == "ok"
+    assert [(f["rule"], f["severity"], f["path"]) for f in report["findings"]] == [
+        ("docshelf-config-conflict", "warning", ".docshelf.json")
+    ]
+    detail = report["findings"][0]["detail"]
+    assert detail == f"category_order is {type_name}, not a list of category names"
+    assert report["verdict"] == "valid"
+
+
+@pytest.mark.parametrize("value", [None, []], ids=["null", "list-empty"])
+def test_category_order_null_or_empty_is_not_a_conflict(memshelf_like: Path, value: Any) -> None:
+    # null reads as the key being absent (loaders tolerate missing keys,
+    # SPEC 3.1); an empty list names no category, so none of it disagrees.
+    _set_category_order(memshelf_like, value)
+    assert validate_shelf(memshelf_like)["findings"] == []
+
+
 @pytest.mark.parametrize(
     "line",
     [
