@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from shelf_spec import cli
 from shelf_spec.cli import EXIT_INTERNAL_ERROR, main
 from shelf_spec.engine import ManifestError
@@ -27,6 +29,33 @@ def test_validate_violations_exit_1(memshelf_like: Path, capsys) -> None:
 
 def test_validate_config_error_exit_2(tmp_path: Path, capsys) -> None:
     assert main(["validate", str(tmp_path)]) == 2
+
+
+@pytest.mark.parametrize(
+    ("line", "bad", "field"),
+    [
+        ("docs_root: docs", 'docs_root: "docs\\n"', "docs_root"),
+        ("  - books", '  - "books\\n"', "categories/0"),
+        ("  - books", '  - "."', "categories/0"),
+        ("  path: INDEX.md", '  path: "INDEX.md\\n"', "index/path"),
+    ],
+    ids=["docs_root-newline", "category-newline", "category-dot", "index-path-newline"],
+)
+def test_validate_ci_refuses_names_the_schema_forbids(
+    docshelf_like: Path, capsys, line: str, bad: str, field: str
+) -> None:
+    # shelf-spec#58: each passed the schema under Python's `re` and reached
+    # the tree checks — exit 0 or 1 — though ECMA-262 refuses the newline
+    # and "." is docs_root itself. Now the manifest gate stops them: exit 2.
+    manifest = docshelf_like / "shelf.yml"
+    text = manifest.read_text(encoding="utf-8")
+    assert text.count(f"\n{line}\n") == 1
+    manifest.write_text(text.replace(f"\n{line}\n", f"\n{bad}\n"), encoding="utf-8")
+    assert main(["validate", "--ci", str(docshelf_like)]) == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["verdict"] == "config-error"
+    assert [f["rule"] for f in report["findings"]] == ["manifest-invalid"]
+    assert f"{field}: " in report["findings"][0]["detail"]
 
 
 def test_validate_ci_emits_json(memshelf_like: Path, capsys) -> None:

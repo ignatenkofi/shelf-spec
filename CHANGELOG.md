@@ -69,6 +69,31 @@
   every test. Tests: the publishing condition as a truth table over the
   refs a run can start from, evaluated from the workflow's own `if:`
   strings, and the smoke step's place and shape.
+- **Schema: path fields refuse control characters, a category refuses `.`
+  (#58).** The nine path fields (`docs_root`, `categories[]`,
+  `index.path`, `ledger.path`, `policy.path`, `policy.patterns`,
+  `extra_dirs[]`, `agents.path`, `provenance.dir`) shared a pattern whose
+  verdict depended on the regex engine: Python's `re`, which `jsonschema`
+  runs it with, lets `$` match before a final newline and `.` match a
+  carriage return and U+2028/U+2029, while ECMA-262 — the dialect of
+  JSON Schema patterns — refuses all of these. `docs_root: "docs\n"`
+  passed the reference validator and reached the tree checks; on 27 test
+  values × 9 patterns, Python and node `new RegExp(p, 'u')` disagreed 63
+  times before and 0 times after. The category `.` is `docs_root` itself:
+  `init` created no directory for it and `validate` said valid. Each path
+  now refuses control characters (U+0000–U+001F, U+007F–U+009F) and the
+  line/paragraph separators (U+2028, U+2029) through a lookahead that
+  needs no `$`, and a category also refuses `.` — exit 2,
+  `manifest-invalid`. SPEC 3 states the same path rules; the schema's
+  `docs_root` and `categories` descriptions name them. Tests: 8 such
+  values in each of the 9 fields through `load_manifest`, with YAML shown
+  to hand the value over intact; ordinary names (`a.b`, `.hidden`, a
+  space, Cyrillic) stay valid; `.` and `a\n` refused by `init` on a new
+  and an existing shelf (where the duplicate case joins them);
+  `validate --ci` exit 2 for a newline in `docs_root`, `index.path`, a
+  category, and for the category `.`. SPEC 11: this narrows the set of
+  valid manifests, a format change; both live shelves and the spec
+  examples still validate. Minor or major is the owner's call.
 
 ## 0.3.0 (2026-10-06)
 

@@ -172,7 +172,9 @@ schema is the normative field list; this section describes intent.
   legal and forward-compatible — unknown profiles downgrade to universal
   rules plus a warning, never a config-error (section 2.1).
 - `docs_root` — content directory, default `docs`.
-- `categories` — explicit category list; absent/empty = implicit.
+- `categories` — explicit category list; absent/empty = implicit. Each
+  entry is one directory name under `docs_root`: besides the path rules
+  below, it contains no `/` and is not `.`.
 - `index` — `{path: INDEX.md, generated_by: docshelf-mcp|external|manual}`.
 - `ledger` — `{path: ledger.tsv}`.
 - `policy` — `{path: POLICY.md, patterns: POLICY.patterns}`; `patterns` is
@@ -180,6 +182,19 @@ schema is the normative field list; this section describes intent.
 - `extra_dirs` — declared non-Markdown sidecar directories.
 - `agents`, `provenance` — RESERVED (section 10); the v0 schema accepts
   them so that M1 manifests do not break v0 tooling.
+
+**Path rules.** `docs_root`, `index.path`, `ledger.path`, `policy.path`,
+`policy.patterns`, each `extra_dirs` entry, `agents.path` and
+`provenance.dir` are paths relative to the shelf root. Each of them, and
+each `categories` entry, is non-empty, does not start with `/`, does not
+contain `..`, and contains no control character (U+0000–U+001F,
+U+007F–U+009F) and no line or paragraph separator (U+2028, U+2029). The
+schema states the same rules as one `pattern` per field, written so that
+ECMA-262 — the dialect of JSON Schema patterns — and Python's `re`, which
+the `shelf-spec` validator runs them with, give the same verdict: a `$`
+that matches before a final newline, or a `.` that matches a carriage
+return or a separator, would let one engine accept a name the other
+refuses.
 
 A manifest that is missing, unparseable, or fails the schema is a
 **config-error**: a conforming tool MUST refuse to run any operation

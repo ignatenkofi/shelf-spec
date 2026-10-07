@@ -29,14 +29,14 @@
     },
     "docs_root": {
       "type": "string",
-      "description": "Directory holding the shelf content, relative to the shelf root. Default: docs. May be nested (e.g. DOCS/markdown). Must not be absolute and must not contain '..'.",
+      "description": "Directory holding the shelf content, relative to the shelf root. Default: docs. May be nested (e.g. DOCS/markdown). The path rules every path field of this schema shares (SPEC 3): not absolute, no '..', no control character (U+0000–U+001F, U+007F–U+009F) and no line or paragraph separator (U+2028, U+2029).",
       "minLength": 1,
-      "pattern": "^(?!/)(?!.*\\.\\.).+$"
+      "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!/)(?!.*\\.\\.).+$"
     },
     "categories": {
       "type": "array",
-      "description": "Declared categories (subdirectories of docs_root). Empty or absent = implicit: categories are whatever directories exist, and documents directly under docs_root are allowed. When declared explicitly, an undeclared category directory is a spec violation.",
-      "items": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*\\.\\.)(?!.*/).+$" },
+      "description": "Declared categories (subdirectories of docs_root). Each entry is one directory name: the path rules of docs_root, no '/', and not '.'. Empty or absent = implicit: categories are whatever directories exist, and documents directly under docs_root are allowed. When declared explicitly, an undeclared category directory is a spec violation.",
+      "items": { "type": "string", "minLength": 1, "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!/)(?!.*\\.\\.)(?!.*/)(?!\\.$).+$" },
       "uniqueItems": true
     },
     "index": {
@@ -48,7 +48,7 @@
           "type": "string",
           "description": "Index file path relative to the shelf root. Default: INDEX.md.",
           "minLength": 1,
-          "pattern": "^(?!/)(?!.*\\.\\.).+$"
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!/)(?!.*\\.\\.).+$"
         },
         "generated_by": {
           "type": "string",
@@ -66,7 +66,7 @@
           "type": "string",
           "description": "Ledger path relative to the shelf root. Default: ledger.tsv.",
           "minLength": 1,
-          "pattern": "^(?!/)(?!.*\\.\\.).+$"
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!/)(?!.*\\.\\.).+$"
         }
       }
     },
@@ -79,20 +79,20 @@
           "type": "string",
           "description": "Policy path relative to the shelf root. Default: POLICY.md.",
           "minLength": 1,
-          "pattern": "^(?!/)(?!.*\\.\\.).+$"
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!/)(?!.*\\.\\.).+$"
         },
         "patterns": {
           "type": "string",
           "description": "Path of the machine-readable redaction pattern file relative to the shelf root (memory profile, memshelf lineage: POLICY.patterns next to POLICY.md, one '<kind> <regex>' rule per line, read by the shelve redaction pass, doctor and the pre-commit guard). Optional, no default: a shelf without it has no machine-readable patterns. v0 validators accept the key and do not read the file.",
           "minLength": 1,
-          "pattern": "^(?!/)(?!.*\\.\\.).+$"
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!/)(?!.*\\.\\.).+$"
         }
       }
     },
     "extra_dirs": {
       "type": "array",
       "description": "Additional non-markdown directories that legitimately belong to the shelf (e.g. binary sidecars like compressed PDF originals). Declared so validators know they are intentional.",
-      "items": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*\\.\\.).+$" },
+      "items": { "type": "string", "minLength": 1, "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!/)(?!.*\\.\\.).+$" },
       "uniqueItems": true
     },
     "agents": {
@@ -104,7 +104,7 @@
           "type": "string",
           "description": "Path of the agent registry file relative to the shelf root. Default: agents.yml.",
           "minLength": 1,
-          "pattern": "^(?!/)(?!.*\\.\\.).+$"
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!/)(?!.*\\.\\.).+$"
         }
       }
     },
@@ -117,7 +117,7 @@
           "type": "string",
           "description": "Directory of provenance stamps relative to the shelf root. Default: provenance/.",
           "minLength": 1,
-          "pattern": "^(?!/)(?!.*\\.\\.).+$"
+          "pattern": "^(?![\\s\\S]*[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029])(?!/)(?!.*\\.\\.).+$"
         },
         "required": {
           "type": "boolean",
