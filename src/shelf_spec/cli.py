@@ -3,7 +3,9 @@
 Commands: ``init``, ``validate``, ``info``, ``serve``. Exit-code contract
 (SPEC.md 9.2, shared with the house verify tools): 0 = conforms (warnings
 allowed), 1 = error findings, 2 = config-error (manifest missing /
-unparseable / schema-invalid — checked before any rule).
+unparseable / schema-invalid — checked before any rule), 3 = internal
+error (the tool stopped before a verdict; never 1, which is a finding
+about the shelf).
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ __all__ = ["main"]
 EXIT_OK = 0
 EXIT_VIOLATIONS = 1
 EXIT_CONFIG_ERROR = 2
+EXIT_INTERNAL_ERROR = 3
 
 
 def _resolve_root(path: str | None) -> Path:
@@ -141,7 +144,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--json", action="store_true", help="machine-readable output")
     p_init.set_defaults(func=_cmd_init)
 
-    p_val = sub.add_parser("validate", help="lint a shelf against shelf-spec (exit 0/1/2)")
+    p_val = sub.add_parser("validate", help="lint a shelf against shelf-spec (exit 0/1/2/3)")
     p_val.add_argument(
         "path", nargs="?", default=None, help="shelf root (default: $SHELF_SPEC_ROOT or cwd)"
     )
@@ -172,7 +175,24 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except ManifestError as exc:
+        # The config-error gate keeps its own code wherever it fires — the
+        # catch-all below must never turn it into an internal error.
+        print(f"config-error ({exc.rule}): {exc.detail}", file=sys.stderr)
+        return EXIT_CONFIG_ERROR
+    except Exception as exc:
+        # An exception the engine did not turn into a finding (SPEC 9.2): left
+        # alone, Python exits 1 with a traceback, and 1 is what CI reads as
+        # "the shelf violates the spec" (shelf-spec#59). No report is printed —
+        # there is no verdict to print.
+        print(
+            f"internal-error ({type(exc).__name__}): {exc} — shelf-spec {__version__} "
+            "stopped before reaching a verdict; this is not a finding about the shelf",
+            file=sys.stderr,
+        )
+        return EXIT_INTERNAL_ERROR
 
 
 if __name__ == "__main__":

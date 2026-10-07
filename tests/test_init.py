@@ -134,10 +134,12 @@ def _tree(base: Path) -> list[str]:
 # empty tmp_path afterwards therefore means nothing was written anywhere —
 # no shelf root, no shelf.yml, no directory where the name points.
 # Duplicates are refused (schema uniqueItems), not silently deduplicated.
+# "." is docs_root itself and "a\n" a name ECMA-262 refuses (#58); the
+# containment check accepts both, so the schema pattern is their only gate.
 @pytest.mark.parametrize(
     "category",
-    ["../../escaped", "a/b", "{tmp}/abs_target", "a,a"],
-    ids=["traversal", "nested", "absolute", "duplicate"],
+    ["../../escaped", "a/b", "{tmp}/abs_target", "a,a", ".", "a\n"],
+    ids=["traversal", "nested", "absolute", "duplicate", "dot", "newline"],
 )
 def test_init_refuses_invalid_categories_before_any_write(tmp_path: Path, category: str) -> None:
     categories = category.format(tmp=tmp_path).split(",")
@@ -148,7 +150,11 @@ def test_init_refuses_invalid_categories_before_any_write(tmp_path: Path, catego
     assert _tree(tmp_path) == []
 
 
-@pytest.mark.parametrize("category", ["../../escaped", "a/b"], ids=["traversal", "nested"])
+@pytest.mark.parametrize(
+    "category",
+    ["../../escaped", "a/b", "a,a", ".", "a\n"],
+    ids=["traversal", "nested", "duplicate", "dot", "newline"],
+)
 def test_init_on_existing_shelf_refuses_invalid_category(tmp_path: Path, category: str) -> None:
     # Implicit categories (none declared), so the refusal comes from the
     # schema gate on the requested names, not from the declared-list check.
@@ -156,7 +162,7 @@ def test_init_on_existing_shelf_refuses_invalid_category(tmp_path: Path, categor
     init_shelf(root)
     before = _tree(tmp_path)
     with pytest.raises(ManifestError) as excinfo:
-        init_shelf(root, categories=[category])
+        init_shelf(root, categories=category.split(","))
     assert excinfo.value.rule == "manifest-invalid"
     assert _tree(tmp_path) == before
 

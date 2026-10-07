@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
+
+import pytest
 
 from shelf_spec.engine.validator import parse_frontmatter, validate_shelf
 from tests.conftest import legacy_manifest
@@ -89,6 +93,20 @@ def test_episode_empty_kind_is_error(memshelf_like: Path) -> None:
     report = validate_shelf(memshelf_like)
     assert "episode-frontmatter-invalid" in rules(report, "error")
     assert "episode-kind-unknown" not in rules(report)
+
+
+def test_episode_empty_string_kind_is_the_unknown_kind_warning(memshelf_like: Path) -> None:
+    """``kind: ""`` is a string outside the set: the forward-compat warning.
+
+    Whether it should be an error, like ``kind:`` with no value, is the
+    owner's call; this pins today's verdict so that a change is deliberate.
+    """
+    episode = memshelf_like / "docs" / "topics" / "2026-01-10-fixture-topic.md"
+    text = episode.read_text(encoding="utf-8").replace("kind: topic", 'kind: ""')
+    episode.write_text(text, encoding="utf-8")
+    report = validate_shelf(memshelf_like)
+    assert rules(report) == {"episode-kind-unknown"}
+    assert report["verdict"] == "valid"
 
 
 def test_document_profile_has_no_frontmatter_rules(docshelf_like: Path) -> None:
@@ -494,3 +512,168 @@ def test_no_ledger_cross_rules_for_document_profile(docshelf_like: Path) -> None
     report = validate_shelf(docshelf_like)
     assert "ledger-orphan-row" not in rules(report)
     assert "episode-without-row" not in rules(report)
+
+
+# --------------------------------------------------------------- policy (#60)
+
+
+def test_missing_policy_is_info(memshelf_like: Path) -> None:
+    # Negative fixture for `no-policy`: the shipped mini-shelf minus its
+    # POLICY.md. Info, not a failure — a shelf without a policy conforms.
+    (memshelf_like / "POLICY.md").unlink()
+    report = validate_shelf(memshelf_like)
+    assert report["verdict"] == "valid"
+    assert rules(report) == {"no-policy"}
+    finding = next(f for f in report["findings"] if f["rule"] == "no-policy")
+    assert finding["severity"] == "info"
+    assert finding["path"] == "POLICY.md"
+
+
+def test_policy_at_declared_path_keeps_no_policy_quiet(memshelf_like: Path) -> None:
+    # Positive fixture: the policy lives where `policy.path` says, under a
+    # name that is not the default — the rule follows the manifest. The
+    # control proves the file move alone is enough to make it fire.
+    (memshelf_like / "POLICY.md").rename(memshelf_like / "REDACTION.md")
+    control = validate_shelf(memshelf_like)
+    assert rules(control) == {"no-policy"}
+
+    _swap_line(memshelf_like / "shelf.yml", "  path: POLICY.md", "  path: REDACTION.md")
+    report = validate_shelf(memshelf_like)
+    assert report["findings"] == []
+
+
+# ------------------------------------------------- fields of the wrong type (#59)
+
+#: One value per JSON/YAML type that is not a string, each truthy and falsy:
+#: the old code let some falsy values fall through to a default and raised on
+#: the truthy ones (`.strip()` on a list, a list in a set, `set(1)`, a join of
+#: integers) — a traceback and exit 1 instead of a finding.
+WRONG_TYPE_VALUES: list[Any] = [["x"], [], {"a": 1}, {}, 1, 0, True, False, 1.5, 0.0]
+WRONG_TYPE_IDS = [
+    "list",
+    "list-empty",
+    "mapping",
+    "mapping-empty",
+    "integer",
+    "integer-zero",
+    "true",
+    "false",
+    "float",
+    "float-zero",
+]
+
+_TOPIC = Path("docs") / "topics" / "2026-01-10-fixture-topic.md"
+
+
+def _plant_meta_title(shelf: Path, value: Any) -> None:
+    meta = shelf / "docs" / "topics" / ".meta.json"
+    data = json.loads(meta.read_text(encoding="utf-8"))
+    data[_TOPIC.name]["title"] = value
+    meta.write_text(json.dumps(data), encoding="utf-8")
+
+
+def _plant_frontmatter(key: str) -> Callable[[Path, Any], None]:
+    def plant(shelf: Path, value: Any) -> None:
+        # JSON is valid YAML flow syntax for every value above.
+        _swap_line(shelf / _TOPIC, f"{key}:", f"{key}: {json.dumps(value)}")
+
+    return plant
+
+
+def _plant_category_order(shelf: Path, value: Any) -> None:
+    impl = shelf / ".docshelf.json"
+    data = json.loads(impl.read_text(encoding="utf-8"))
+    data["category_order"] = ["topics", value]
+    impl.write_text(json.dumps(data), encoding="utf-8")
+
+
+#: site -> (how to plant the value, the rule that must report it, its severity)
+WRONG_TYPE_SITES: dict[str, tuple[Callable[[Path, Any], None], str, str]] = {
+    "meta-title": (_plant_meta_title, "corrupt-meta", "warning"),
+    "episode-mode": (_plant_frontmatter("mode"), "episode-frontmatter-invalid", "error"),
+    "episode-kind": (_plant_frontmatter("kind"), "episode-frontmatter-invalid", "error"),
+    "category-order": (_plant_category_order, "docshelf-config-conflict", "warning"),
+}
+
+
+@pytest.mark.parametrize("value", WRONG_TYPE_VALUES, ids=WRONG_TYPE_IDS)
+@pytest.mark.parametrize("site", sorted(WRONG_TYPE_SITES))
+def test_wrong_type_is_a_finding_not_a_crash(memshelf_like: Path, site: str, value: Any) -> None:
+    plant, rule, severity = WRONG_TYPE_SITES[site]
+    plant(memshelf_like, value)
+    report = validate_shelf(memshelf_like)
+    assert report["status"] == "ok"
+    # The clean mini-shelf plus one planted value: exactly one rule fires,
+    # and it is the existing rule for that file — not a new one, and not a
+    # forward-compatibility warning (a non-string kind is not a newer kind).
+    assert rules(report) == {rule}
+    hits = [f for f in report["findings"] if f["rule"] == rule]
+    assert all(f["severity"] == severity for f in hits)
+    assert any(" not a" in f["detail"] for f in hits), hits
+    assert report["verdict"] == ("violations" if severity == "error" else "valid")
+
+
+def _set_category_order(shelf: Path, value: Any) -> None:
+    impl = shelf / ".docshelf.json"
+    data = json.loads(impl.read_text(encoding="utf-8"))
+    data["category_order"] = value
+    impl.write_text(json.dumps(data), encoding="utf-8")
+
+
+#: `category_order` itself not a list -> the type name the finding must give.
+#: Truthy values used to reach `set()`: a number raised, a string split into
+#: its letters and a mapping into its keys (`{"topics": 1}` agreed with the
+#: manifest). The falsy ones were read as an absent key and passed silently.
+NOT_A_LIST_ORDER: dict[str, tuple[Any, str]] = {
+    "integer": (1, "an integer"),
+    "true": (True, "a boolean"),
+    "float": (1.5, "a float"),
+    "string": ("topics", "a string"),
+    "mapping": ({"topics": 1}, "a mapping"),
+    "integer-zero": (0, "an integer"),
+    "false": (False, "a boolean"),
+    "string-empty": ("", "a string"),
+    "mapping-empty": ({}, "a mapping"),
+}
+
+
+@pytest.mark.parametrize("case", sorted(NOT_A_LIST_ORDER))
+def test_category_order_that_is_not_a_list_is_a_conflict(memshelf_like: Path, case: str) -> None:
+    value, type_name = NOT_A_LIST_ORDER[case]
+    _set_category_order(memshelf_like, value)
+    report = validate_shelf(memshelf_like)
+    assert report["status"] == "ok"
+    assert [(f["rule"], f["severity"], f["path"]) for f in report["findings"]] == [
+        ("docshelf-config-conflict", "warning", ".docshelf.json")
+    ]
+    detail = report["findings"][0]["detail"]
+    assert detail == f"category_order is {type_name}, not a list of category names"
+    assert report["verdict"] == "valid"
+
+
+@pytest.mark.parametrize("value", [None, []], ids=["null", "list-empty"])
+def test_category_order_null_or_empty_is_not_a_conflict(memshelf_like: Path, value: Any) -> None:
+    # null reads as the key being absent (loaders tolerate missing keys,
+    # SPEC 3.1); an empty list names no category, so none of it disagrees.
+    _set_category_order(memshelf_like, value)
+    assert validate_shelf(memshelf_like)["findings"] == []
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "span: 2026-02-30",  # an impossible date: ValueError from the date constructor
+        "approx_tokens: !!int abc",  # ValueError
+        "tags: !!bool maybe",  # KeyError
+        "mode: !!timestamp soon",  # AttributeError
+    ],
+)
+def test_frontmatter_value_yaml_cannot_build_is_a_finding(memshelf_like: Path, line: str) -> None:
+    # PyYAML raises these as plain exceptions, not YAMLError, so they escaped
+    # parse_frontmatter and took the whole run down (#59, same class). The
+    # block does not parse — reported like a YAML syntax error, with the path.
+    _swap_line(memshelf_like / _TOPIC, line.split(":")[0] + ":", line)
+    report = validate_shelf(memshelf_like)
+    assert rules(report) == {"episode-frontmatter-missing"}
+    assert report["findings"][0]["path"] == _TOPIC.as_posix()
+    assert report["verdict"] == "violations"
