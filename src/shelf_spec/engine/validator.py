@@ -528,9 +528,9 @@ def _check_episode(manifest: Manifest, doc: Path, findings: list[Finding]) -> No
         problems.append(f"id '{fm['id']}' does not equal the filename stem '{doc.stem}'")
     kind = fm.get("kind")
     if "kind" in fm and kind is None:
-        # A present-but-empty kind is malformed frontmatter, not a value from
-        # a newer spec revision — it stays an error, unlike the unknown-kind
-        # warning below.
+        # `kind:` with no value (YAML null) is malformed frontmatter, not a
+        # value from a newer spec revision — it stays an error, unlike the
+        # unknown-kind warning below.
         problems.append("kind is empty")
     elif "kind" in fm and not isinstance(kind, str):
         # Same reasoning: a newer revision adds kind *names*. A list, mapping,
@@ -560,8 +560,9 @@ def _check_episode(manifest: Manifest, doc: Path, findings: list[Finding]) -> No
 
     # Forward compatibility (SPEC 2.1/5.2): a kind from a newer spec revision
     # is a warning, not an error — its section contract is unknown here, so
-    # nothing below enforces one. A missing, empty or non-string kind was
-    # reported above, and nothing below applies to it.
+    # nothing below enforces one. A missing, null or non-string kind was
+    # reported above, and nothing below applies to it; `kind: ""` is a
+    # string outside the set, so it is that warning.
     if not isinstance(kind, str):
         return
     if kind not in EPISODE_KINDS:

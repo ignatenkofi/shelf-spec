@@ -39,9 +39,10 @@
   keys, and `0`, `false`, `""` or `{}` passed as if the key were absent;
   any value but a list or `null` is now that warning. One verdict
   narrows: a numeric or boolean `kind` was the warning
-  `episode-kind-unknown` and is now the error, like an empty one — a
-  newer revision adds kind names, not kind types (SPEC 5.2, 9.1). The
-  same class sat in both YAML readers: PyYAML raises a plain
+  `episode-kind-unknown` and is now the error, as a `kind:` with no value
+  (null) already was — a newer revision adds kind names, not kind types
+  (SPEC 5.2, 9.1). `kind: ""` is a string outside the set and stays the
+  warning. The same class sat in both YAML readers: PyYAML raises a plain
   `ValueError`/`KeyError`/`AttributeError`, not `YAMLError`, for a value it
   cannot build — an impossible date such as `span: 2026-02-30`, `!!int
   abc` — so one such episode took the whole run down. It is now

@@ -393,9 +393,10 @@ accept both placements (byte 0 and after-H1).
 - `kind` (REQUIRED) — `topic` | `research` | `session`. A kind outside
   this set is reported as the warning `episode-kind-unknown` (forward
   compatibility, section 2.1) and its section contract (5.3) is not
-  enforced; a present-but-empty `kind`, or one that is not a string (a
-  list, a mapping, a number, a boolean), is malformed frontmatter and
-  stays an error — a newer revision adds kind names, not kind types.
+  enforced; a `kind` that is not a string — null (`kind:` with no
+  value), a list, a mapping, a number, a boolean — is malformed
+  frontmatter and stays an error: a newer revision adds kind names, not
+  kind types.
 - `span` (REQUIRED) — when the work happened: `YYYY-MM-DD` or
   `YYYY-MM-DD..YYYY-MM-DD`. The date pattern is *recommended*, not
   enforced: live shelves carry trailing clarifications
@@ -508,10 +509,10 @@ error:
   syntax error, or a value YAML cannot build, such as an impossible date
   (section 5.1).
 - `episode-frontmatter-invalid` — memory profile: frontmatter present but
-  violates section 5.2 (missing required field, `id` != stem, empty or
-  non-string `kind`, non-integer `approx_tokens`, `tags` not a list,
-  `mode` other than `live`/`import`). An *unknown* `kind` name is the
-  warning `episode-kind-unknown`, not this error (section 2.1).
+  violates section 5.2 (missing required field, `id` != stem, a null or
+  other non-string `kind`, non-integer `approx_tokens`, `tags` not a
+  list, `mode` other than `live`/`import`). An *unknown* `kind` name is
+  the warning `episode-kind-unknown`, not this error (section 2.1).
 - `episode-sections-missing` — memory profile: an episode is missing a
   required H2 section for its `kind` (section 5.3): `## Digest` for every
   kind, `## Decisions` for `topic`, `## Timeline` + `## Open threads` for

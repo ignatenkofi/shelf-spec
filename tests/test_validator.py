@@ -95,6 +95,20 @@ def test_episode_empty_kind_is_error(memshelf_like: Path) -> None:
     assert "episode-kind-unknown" not in rules(report)
 
 
+def test_episode_empty_string_kind_is_the_unknown_kind_warning(memshelf_like: Path) -> None:
+    """``kind: ""`` is a string outside the set: the forward-compat warning.
+
+    Whether it should be an error, like ``kind:`` with no value, is the
+    owner's call; this pins today's verdict so that a change is deliberate.
+    """
+    episode = memshelf_like / "docs" / "topics" / "2026-01-10-fixture-topic.md"
+    text = episode.read_text(encoding="utf-8").replace("kind: topic", 'kind: ""')
+    episode.write_text(text, encoding="utf-8")
+    report = validate_shelf(memshelf_like)
+    assert rules(report) == {"episode-kind-unknown"}
+    assert report["verdict"] == "valid"
+
+
 def test_document_profile_has_no_frontmatter_rules(docshelf_like: Path) -> None:
     report = validate_shelf(docshelf_like)
     assert "episode-frontmatter-missing" not in rules(report)
