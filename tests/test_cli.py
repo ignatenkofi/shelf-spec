@@ -1,12 +1,17 @@
-"""CLI exit-code contract (0/1/2) and machine output."""
+"""CLI exit-code contract (0/1/2/3) and machine output."""
 
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
-from shelf_spec.cli import main
-from tests.conftest import legacy_manifest
+from shelf_spec import cli
+from shelf_spec.cli import EXIT_INTERNAL_ERROR, main
+from shelf_spec.engine import ManifestError
+from tests.conftest import REPO_ROOT, legacy_manifest
 
 
 def test_validate_valid_exits_0(memshelf_like: Path, capsys) -> None:
@@ -124,3 +129,103 @@ def test_info_json(memshelf_like: Path, capsys) -> None:
     assert main(["info", "--json", str(memshelf_like)]) == 0
     info = json.loads(capsys.readouterr().out)
     assert info["name"] == "Fixture working memory shelf"
+
+
+# ------------------------------------------------- internal errors (#59)
+
+
+def test_issue_59_reproduction_reports_instead_of_crashing(tmp_path: Path, capsys) -> None:
+    """The script from shelf-spec#59: a JSON report each time, exit 1 only for errors."""
+    doc = tmp_path / "doc"
+    assert main(["init", str(doc), "--profile", "document", "--categories", "guides"]) == 0
+    (doc / "docs" / "guides" / "a.md").write_text("# a\n", encoding="utf-8")
+    (doc / "docs" / "guides" / ".meta.json").write_text(
+        '{"a.md": {"title": ["x"]}}', encoding="utf-8"
+    )
+    capsys.readouterr()
+    assert main(["validate", "--ci", str(doc)]) == 0  # corrupt-meta is a warning
+    report = json.loads(capsys.readouterr().out)
+    assert "corrupt-meta" in {f["rule"] for f in report["findings"]}
+
+    mem = tmp_path / "mem"
+    assert main(["init", str(mem), "--profile", "memory", "--categories", "topic"]) == 0
+    (mem / "docs" / "topic" / "e1.md").write_text(
+        "---\nid: e1\nkind: [topic]\nspan: x\ntags: []\napprox_tokens: 1\n---\n# e1\n",
+        encoding="utf-8",
+    )
+    capsys.readouterr()
+    assert main(["validate", "--ci", str(mem)]) == 1  # a non-string kind is an error
+    report = json.loads(capsys.readouterr().out)
+    assert report["verdict"] == "violations"
+    assert {f["rule"] for f in report["findings"] if f["severity"] == "error"} == {
+        "episode-frontmatter-invalid"
+    }
+
+
+def _raise(exc: Exception):
+    def boom(*_args, **_kwargs):
+        raise exc
+
+    return boom
+
+
+def test_internal_error_is_exit_3_not_1(memshelf_like: Path, capsys, monkeypatch) -> None:
+    # SPEC 9.2: 1 says the shelf violates the spec. A validator that died
+    # has said nothing about the shelf, so it gets its own code and no report.
+    monkeypatch.setattr(cli, "validate_shelf", _raise(RuntimeError("synthetic failure")))
+    assert main(["validate", "--ci", str(memshelf_like)]) == EXIT_INTERNAL_ERROR == 3
+    out, err = capsys.readouterr()
+    assert out == ""
+    assert "internal-error (RuntimeError): synthetic failure" in err
+
+
+def test_manifest_error_keeps_exit_2_under_the_catch_all(
+    memshelf_like: Path, capsys, monkeypatch
+) -> None:
+    # `validate` has no handler of its own (validate_shelf reports the gate
+    # as a finding), so a ManifestError that escapes it reaches main(): it is
+    # still the config-error gate — exit 2 with its rule — never an internal
+    # error.
+    gate = _raise(ManifestError("manifest-invalid", "synthetic gate failure"))
+    monkeypatch.setattr(cli, "validate_shelf", gate)
+    assert main(["validate", "--ci", str(memshelf_like)]) == 2
+    err = capsys.readouterr().err
+    assert "config-error (manifest-invalid): synthetic gate failure" in err
+    assert "internal-error" not in err
+
+
+#: Runs main() in a real interpreter with validate_shelf replaced by a function
+#: that raises — the exit status is what CI sees, main()'s return value is not.
+_CRASHING_CHILD = """
+import sys
+from pathlib import Path
+
+import shelf_spec
+import shelf_spec.cli as cli
+
+assert Path(shelf_spec.__file__).resolve().is_relative_to(Path(sys.argv[1]).resolve())
+
+
+def boom(*args, **kwargs):
+    raise RuntimeError("synthetic failure")
+
+
+cli.validate_shelf = boom
+sys.exit(cli.main(["validate", "--ci", sys.argv[2]]))
+"""
+
+
+def test_internal_error_exit_status_reaches_the_process(memshelf_like: Path) -> None:
+    src = REPO_ROOT / "src"
+    proc = subprocess.run(
+        [sys.executable, "-c", _CRASHING_CHILD, str(src), str(memshelf_like)],
+        capture_output=True,
+        text=True,
+        env=dict(os.environ, PYTHONPATH=str(src)),
+        timeout=120,
+        check=False,
+    )
+    assert proc.returncode == 3, proc.stderr
+    assert "Traceback" not in proc.stderr
+    assert "internal-error (RuntimeError): synthetic failure" in proc.stderr
+    assert proc.stdout == ""

@@ -46,6 +46,31 @@ def test_unparseable_yaml_is_config_error(tmp_path: Path) -> None:
     assert exc.value.rule == "manifest-invalid"
 
 
+@pytest.mark.parametrize(
+    "line",
+    [
+        "name: 2026-02-30",  # an impossible date: ValueError from the date constructor
+        "name: !!int abc",  # ValueError
+        "name: !!bool maybe",  # KeyError
+    ],
+)
+def test_value_yaml_cannot_build_is_config_error(tmp_path: Path, line: str) -> None:
+    # PyYAML raises these as plain exceptions, not YAMLError: before #59 they
+    # escaped the gate as a traceback instead of a config-error.
+    (tmp_path / "shelf.yml").write_text(f'spec_version: "0.1"\nmode: single\n{line}\n', "utf-8")
+    with pytest.raises(ManifestError) as exc:
+        load_manifest(tmp_path)
+    assert exc.value.rule == "manifest-invalid"
+
+
+def test_non_utf8_manifest_is_config_error(tmp_path: Path) -> None:
+    (tmp_path / "shelf.yml").write_bytes(b'spec_version: "0.1"\nmode: single\nname: \xe9t\xe9\n')
+    with pytest.raises(ManifestError) as exc:
+        load_manifest(tmp_path)
+    assert exc.value.rule == "manifest-invalid"
+    assert "UTF-8" in exc.value.detail
+
+
 def test_schema_violation_is_config_error(tmp_path: Path) -> None:
     (tmp_path / "shelf.yml").write_text('spec_version: "0.1"\nmode: banana\n', encoding="utf-8")
     with pytest.raises(ManifestError) as exc:

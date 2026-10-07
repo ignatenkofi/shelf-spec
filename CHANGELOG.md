@@ -25,6 +25,36 @@
   directories: re-running `init` on copies of two live shelves is still a
   no-op. A category directory symlinked outside the docs root, named in
   `--categories`, is now refused where it used to be skipped.
+- **`validate` reports a field of the wrong type instead of crashing, and
+  a crash is exit 3, not 1 (#59, #60).** Four reads assumed a string: a
+  `.meta.json` `title`, an episode's `mode` and `kind`, and the entries of
+  `.docshelf.json` `category_order`. A list, a mapping, a number or a
+  boolean there raised `AttributeError`/`TypeError` — a traceback and exit
+  1, the code CI reads as "the shelf violates the spec", with no report.
+  Each is now type-checked and reported by the rule that already owns the
+  file: `corrupt-meta` (warning; the filename stands in for the title),
+  `episode-frontmatter-invalid` (error), `docshelf-config-conflict`
+  (warning). One verdict narrows: a numeric or boolean `kind` was the
+  warning `episode-kind-unknown` and is now the error, like an empty one —
+  a newer revision adds kind names, not kind types (SPEC 5.2, 9.1). The
+  same class sat in both YAML readers: PyYAML raises a plain
+  `ValueError`/`KeyError`/`AttributeError`, not `YAMLError`, for a value it
+  cannot build — an impossible date such as `span: 2026-02-30`, `!!int
+  abc` — so one such episode took the whole run down. It is now
+  `episode-frontmatter-missing` for that file (the block does not parse,
+  like a syntax error), and such a `shelf.yml`, or one that is not UTF-8,
+  is `manifest-invalid` (exit 2). Any exception the engine still does not
+  turn into a finding exits **3** with `internal-error (<type>): …` on
+  stderr and no report (SPEC 9.2, README, `docs/advisory-ci.md`); a
+  `ManifestError` that reaches `main()` keeps exit 2. Tests: the issue's
+  reproduction through the CLI, four sites × ten wrong-typed values, the
+  values YAML cannot build in an episode and in `shelf.yml`, exit 3
+  in-process and as a real process status, `no-policy` with its negative
+  and positive fixtures, and a reconciliation of SPEC 9.1 with the rule
+  ids and severities the engine emits, read from the source by `ast` (26
+  rules on both sides). SPEC 11: exit code 3 is additive and the `kind`
+  narrowing touches no live shelf; whether this is a minor revision of the
+  document is the owner's call.
 
 ## 0.3.0 (2026-10-06)
 

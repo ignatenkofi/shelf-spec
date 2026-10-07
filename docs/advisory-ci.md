@@ -80,8 +80,10 @@ first".
 
 Exit codes: `0` conforms (warnings allowed; `--strict` promotes warnings
 to failure), `1` spec violations, `2` config-error (no or invalid
-`shelf.yml`; checked before any rule). The `--ci` flag prints the full JSON
-report, so findings are machine-collectable from the log.
+`shelf.yml`; checked before any rule), `3` internal error (the validator
+stopped before a verdict; the message is on stderr and there is no report).
+The `--ci` flag prints the full JSON report, so findings are
+machine-collectable from the log.
 
 For a shelf that does not yet commit its `shelf.yml`, validate against a
 candidate manifest kept elsewhere:

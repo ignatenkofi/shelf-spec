@@ -201,7 +201,9 @@ loaders MUST tolerate missing keys (older shelves predate newer keys).
 Precedence: **`shelf.yml` is the contract; `.docshelf.json` is an
 implementation detail.** Where the two overlap (e.g. `name`,
 `categories`/`category_order`), a disagreement is a validator *warning*
-(`docshelf-config-conflict`), not an error.
+(`docshelf-config-conflict`), not an error. An overlapping value that
+cannot be compared — a `category_order` that is not a list of category
+names — is reported the same way.
 
 ## 4. File contracts
 
@@ -244,7 +246,9 @@ A JSON object mapping document filename (with `.md`) to display metadata:
 
 It is the indexer's source of titles/descriptions. `.meta.json` is
 OPTIONAL per category; without it, titles derive from filenames. A key
-without a matching file is drift (`stale-meta-entry`).
+without a matching file is drift (`stale-meta-entry`). A file that is not
+a JSON object, or a `title` that is not a string, is `corrupt-meta`; the
+filename stands in for such a title.
 
 ### 4.3 Split documents and `SUBINDEX.md`
 
@@ -374,8 +378,9 @@ accept both placements (byte 0 and after-H1).
 - `kind` (REQUIRED) — `topic` | `research` | `session`. A kind outside
   this set is reported as the warning `episode-kind-unknown` (forward
   compatibility, section 2.1) and its section contract (5.3) is not
-  enforced; a present-but-empty `kind` is malformed frontmatter and stays
-  an error.
+  enforced; a present-but-empty `kind`, or one that is not a string (a
+  list, a mapping, a number, a boolean), is malformed frontmatter and
+  stays an error — a newer revision adds kind names, not kind types.
 - `span` (REQUIRED) — when the work happened: `YYYY-MM-DD` or
   `YYYY-MM-DD..YYYY-MM-DD`. The date pattern is *recommended*, not
   enforced: live shelves carry trailing clarifications
@@ -484,10 +489,13 @@ error:
 - `ledger-malformed` — memory profile: the ledger exists but its header
   or rows violate section 4.4.
 - `episode-frontmatter-missing` — memory profile: a document has no
-  frontmatter block (section 5.1).
+  frontmatter block, or its block does not parse as a YAML mapping — a
+  syntax error, or a value YAML cannot build, such as an impossible date
+  (section 5.1).
 - `episode-frontmatter-invalid` — memory profile: frontmatter present but
-  violates section 5.2 (missing required field, `id` != stem, empty
-  `kind`, non-integer `approx_tokens`). An *unknown* `kind` is the
+  violates section 5.2 (missing required field, `id` != stem, empty or
+  non-string `kind`, non-integer `approx_tokens`, `tags` not a list,
+  `mode` other than `live`/`import`). An *unknown* `kind` name is the
   warning `episode-kind-unknown`, not this error (section 2.1).
 - `episode-sections-missing` — memory profile: an episode is missing a
   required H2 section for its `kind` (section 5.3): `## Digest` for every
@@ -506,7 +514,8 @@ warning:
   spec revision; its section contract is not enforced. `--strict`
   promotes this to failure.
 - `stale-meta-entry` — `.meta.json` key with no matching file.
-- `corrupt-meta` — `.meta.json` is not valid JSON.
+- `corrupt-meta` — `.meta.json` is not valid JSON, is not a JSON object,
+  or gives an entry a `title` that is not a string (section 4.2).
 - `orphaned-split-dir` — split directory with no parent document (only on
   shelves with `generated_by: docshelf-mcp` — section 4.3; a directory
   listed in `extra_dirs` is exempt).
@@ -524,7 +533,8 @@ warning:
   owner/repo than `git remote get-url origin` (offline heuristic; known
   incident class: repo renames break raw URLs).
 - `docshelf-config-conflict` — `shelf.yml` and `.docshelf.json` disagree
-  on an overlapping field.
+  on an overlapping field, or `.docshelf.json` gives it a value that
+  cannot be compared (section 3.1).
 
 info:
 
@@ -550,6 +560,11 @@ info:
 - `1` — findings of severity `error` (spec violations).
 - `2` — config-error: manifest missing / unparseable / schema-invalid —
   detected before any rule runs.
+- `3` — internal error: the validator stopped before reaching a verdict
+  (an exception no rule turned into a finding — a defect in the tool, or
+  an environment failure such as an unreadable directory). The message
+  goes to stderr and no report is printed. This is never `1`: `1` is a
+  statement about the shelf, and a crashed validator has made none.
 
 ## 10. Reserved for M1+ (non-normative sketches)
 

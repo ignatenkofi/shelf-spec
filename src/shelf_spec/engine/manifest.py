@@ -171,9 +171,17 @@ def load_manifest(shelf_root: Path | str, manifest_path: Path | str | None = Non
             "(run 'shelf-spec init' to scaffold one, or pass --manifest)",
         )
 
+    # A manifest that is not UTF-8, or holds a value PyYAML's constructors
+    # cannot build (an impossible date such as `2026-02-30`, `!!int abc` —
+    # ValueError/KeyError/AttributeError, not YAMLError), does not parse:
+    # config-error, not a crash. An OSError reading it is left to the caller.
     try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except yaml.YAMLError as exc:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise ManifestError("manifest-invalid", f"shelf.yml is not UTF-8 text: {exc}") from exc
+    try:
+        data = yaml.safe_load(text)
+    except Exception as exc:
         raise ManifestError("manifest-invalid", f"shelf.yml does not parse as YAML: {exc}") from exc
     if not isinstance(data, dict):
         raise ManifestError(

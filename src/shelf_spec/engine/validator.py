@@ -62,6 +62,30 @@ class Finding:
     suggested_fix: str
 
 
+def _type_name(value: Any) -> str:
+    """JSON/YAML-flavoured name of a parsed value's type, for finding details.
+
+    Shelf files are hand-editable, so a field the spec types as a string can
+    arrive as a list, a mapping, a number or a boolean. Every rule that reads
+    such a field checks the type first and reports it with this name —
+    calling a string method on it, or hashing it into a set, was a crash
+    (shelf-spec#59).
+    """
+    if value is None:
+        return "null"
+    if isinstance(value, bool):  # before int: bool is an int subclass
+        return "a boolean"
+    if isinstance(value, int):
+        return "an integer"
+    if isinstance(value, float):
+        return "a float"
+    if isinstance(value, list):
+        return "a list"
+    if isinstance(value, dict):
+        return "a mapping"
+    return f"a {type(value).__name__}"
+
+
 def parse_frontmatter(text: str) -> dict[str, Any] | None:
     """Extract the episode frontmatter mapping, or None when absent.
 
@@ -91,7 +115,11 @@ def parse_frontmatter(text: str) -> dict[str, Any] | None:
         return None
     try:
         data = yaml.safe_load("\n".join(lines[start:end]))
-    except yaml.YAMLError:
+    # Not only YAMLError: PyYAML's constructors raise plain ValueError,
+    # KeyError or AttributeError for a value they cannot build — an
+    # impossible date such as `span: 2026-02-30`, `!!int abc`, `!!bool x`.
+    # Such a block does not parse, the same as a syntax error.
+    except Exception:
         return None
     return data if isinstance(data, dict) else None
 
@@ -379,6 +407,21 @@ def _check_category(manifest: Manifest, cat: _Category, findings: list[Finding])
                             "prune the entry",
                         )
                     )
+                entry = meta[key]
+                title = entry.get("title") if isinstance(entry, dict) else None
+                if title is not None and not isinstance(title, str):
+                    # SPEC 4.2: a title is a string. Any other JSON value is
+                    # drift in the file — reported like an unparseable one,
+                    # and the filename stands in for it below.
+                    findings.append(
+                        Finding(
+                            "corrupt-meta",
+                            "warning",
+                            rel(meta_path),
+                            f"entry '{key}': title is {_type_name(title)}, not a string",
+                            "make the title a JSON string (or drop it), then regenerate the index",
+                        )
+                    )
 
     # Split-layout drift rules describe the reference implementation's
     # layout (SPEC 4.3/9.1); shelves with an external/manual index generator
@@ -427,7 +470,9 @@ def _check_category(manifest: Manifest, cat: _Category, findings: list[Finding])
     by_title: dict[str, list[Path]] = {}
     for doc in cat.documents:
         entry = meta.get(doc.name)
-        title = (entry.get("title", "") if isinstance(entry, dict) else "") or doc.stem
+        title = entry.get("title") if isinstance(entry, dict) else None
+        if not isinstance(title, str) or not title:
+            title = doc.stem  # absent, empty, or not a string (corrupt-meta above)
         by_title.setdefault(title.strip().lower(), []).append(doc)
     for _title, paths in sorted(by_title.items()):
         if len(paths) > 1:
@@ -466,8 +511,8 @@ def _check_episode(manifest: Manifest, doc: Path, findings: list[Finding]) -> No
                 "episode-frontmatter-missing",
                 "error",
                 path,
-                "memory-profile document has no frontmatter block "
-                "(first ----fenced YAML block, optionally after an H1)",
+                "memory-profile document has no frontmatter block that parses as a "
+                "YAML mapping (first ----fenced YAML block, optionally after an H1)",
                 "add frontmatter with id/kind/span/tags/approx_tokens",
             )
         )
@@ -479,17 +524,27 @@ def _check_episode(manifest: Manifest, doc: Path, findings: list[Finding]) -> No
             problems.append(f"missing required field '{key}'")
     if "id" in fm and str(fm["id"]) != doc.stem:
         problems.append(f"id '{fm['id']}' does not equal the filename stem '{doc.stem}'")
-    if "kind" in fm and fm["kind"] is None:
+    kind = fm.get("kind")
+    if "kind" in fm and kind is None:
         # A present-but-empty kind is malformed frontmatter, not a value from
         # a newer spec revision — it stays an error, unlike the unknown-kind
         # warning below.
         problems.append("kind is empty")
+    elif "kind" in fm and not isinstance(kind, str):
+        # Same reasoning: a newer revision adds kind *names*. A list, mapping,
+        # number or boolean is malformed, and the checks below must not see it
+        # (a list in a set lookup was a TypeError — shelf-spec#59).
+        problems.append(f"kind is {_type_name(kind)}, not a string")
     if "approx_tokens" in fm and not isinstance(fm["approx_tokens"], int):
         problems.append("approx_tokens is not an integer")
     if "tags" in fm and not isinstance(fm["tags"], list):
         problems.append("tags is not a list")
-    if "mode" in fm and fm["mode"] not in LEDGER_MODES:
-        problems.append(f"mode '{fm['mode']}' is not one of {sorted(LEDGER_MODES)}")
+    if "mode" in fm:
+        mode = fm["mode"]
+        if not isinstance(mode, str):
+            problems.append(f"mode is {_type_name(mode)}, not a string")
+        elif mode not in LEDGER_MODES:
+            problems.append(f"mode '{mode}' is not one of {sorted(LEDGER_MODES)}")
     if problems:
         findings.append(
             Finding(
@@ -503,9 +558,11 @@ def _check_episode(manifest: Manifest, doc: Path, findings: list[Finding]) -> No
 
     # Forward compatibility (SPEC 2.1/5.2): a kind from a newer spec revision
     # is a warning, not an error — its section contract is unknown here, so
-    # nothing below enforces one.
-    kind = fm.get("kind")
-    if "kind" in fm and kind is not None and kind not in EPISODE_KINDS:
+    # nothing below enforces one. A missing, empty or non-string kind was
+    # reported above, and nothing below applies to it.
+    if not isinstance(kind, str):
+        return
+    if kind not in EPISODE_KINDS:
         findings.append(
             Finding(
                 "episode-kind-unknown",
@@ -826,9 +883,22 @@ def _check_docshelf_config(manifest: Manifest, findings: list[Finding]) -> None:
     if manifest.name and impl_name and manifest.name != impl_name:
         conflicts.append(f"name: shelf.yml '{manifest.name}' vs .docshelf.json '{impl_name}'")
     impl_order = data.get("category_order") or []
-    if manifest.categories and impl_order and set(impl_order) - set(manifest.categories):
-        extra = sorted(set(impl_order) - set(manifest.categories))
-        conflicts.append(f"category_order lists undeclared categories: {', '.join(extra)}")
+    if manifest.categories and impl_order:
+        # The field overlaps shelf.yml `categories`, so a value that cannot be
+        # compared with it is a disagreement too (as a non-string `name` is
+        # above) — never a set() of unhashables or a join of non-strings
+        # (shelf-spec#59).
+        if not isinstance(impl_order, list):
+            conflicts.append(
+                f"category_order is {_type_name(impl_order)}, not a list of category names"
+            )
+        else:
+            odd = [c for c in impl_order if not isinstance(c, str)]
+            if odd:
+                conflicts.append(f"category_order holds {_type_name(odd[0])}, not a category name")
+            elif set(impl_order) - set(manifest.categories):
+                extra = sorted(set(impl_order) - set(manifest.categories))
+                conflicts.append(f"category_order lists undeclared categories: {', '.join(extra)}")
     if conflicts:
         findings.append(
             Finding(
