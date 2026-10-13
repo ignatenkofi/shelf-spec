@@ -47,7 +47,7 @@ pip install -e '.[dev]'
 shelf-spec init [PATH] [--name NAME] [--mode single|multi]
                [--profile memory|document] [--categories a,b,c]
 shelf-spec validate [PATH]              # human-readable report
-shelf-spec validate --ci [PATH]         # machine JSON on stdout, exit 0/1/2
+shelf-spec validate --ci [PATH]         # machine JSON on stdout, exit 0/1/2/3
 shelf-spec validate --json [PATH]       # JSON report
 shelf-spec validate --manifest MANIFEST.yml [PATH]   # validate a tree against
                                        # an external manifest without touching it
@@ -58,7 +58,8 @@ shelf-spec serve                        # MCP server on stdio
 Exit codes: `0` — shelf conforms (warnings allowed; `--strict` promotes
 warnings to failure), `1` — spec violations (error findings), `2` —
 config-error (manifest missing / unparseable / schema-invalid; checked
-before any rule).
+before any rule), `3` — internal error (the validator stopped before a
+verdict; message on stderr, no report).
 
 The default shelf root is `$SHELF_SPEC_ROOT`, falling back to the current
 directory.

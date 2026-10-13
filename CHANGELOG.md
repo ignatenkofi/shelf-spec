@@ -25,6 +25,90 @@
   directories: re-running `init` on copies of two live shelves is still a
   no-op. A category directory symlinked outside the docs root, named in
   `--categories`, is now refused where it used to be skipped.
+- **`validate` reports a field of the wrong type instead of crashing, and
+  a crash is exit 3, not 1 (#59, #60).** Four reads assumed a string: a
+  `.meta.json` `title`, an episode's `mode` and `kind`, and the entries of
+  `.docshelf.json` `category_order`. A list, a mapping, a number or a
+  boolean there raised `AttributeError`/`TypeError` — a traceback and exit
+  1, the code CI reads as "the shelf violates the spec", with no report.
+  Each is now type-checked and reported by the rule that already owns the
+  file: `corrupt-meta` (warning; the filename stands in for the title),
+  `episode-frontmatter-invalid` (error), `docshelf-config-conflict`
+  (warning). `category_order` itself had the same gap: a number there
+  raised too, a string or a mapping was compared as its letters or its
+  keys, and `0`, `false`, `""` or `{}` passed as if the key were absent;
+  any value but a list or `null` is now that warning. One verdict
+  narrows: a numeric or boolean `kind` was the warning
+  `episode-kind-unknown` and is now the error, as a `kind:` with no value
+  (null) already was — a newer revision adds kind names, not kind types
+  (SPEC 5.2, 9.1). `kind: ""` is a string outside the set and stays the
+  warning. The same class sat in both YAML readers: PyYAML raises a plain
+  `ValueError`/`KeyError`/`AttributeError`, not `YAMLError`, for a value it
+  cannot build — an impossible date such as `span: 2026-02-30`, `!!int
+  abc` — so one such episode took the whole run down. It is now
+  `episode-frontmatter-missing` for that file (the block does not parse,
+  like a syntax error), and such a `shelf.yml`, or one that is not UTF-8,
+  is `manifest-invalid` (exit 2). Any exception the engine still does not
+  turn into a finding exits **3** with `internal-error (<type>): …` on
+  stderr and no report (SPEC 9.2, README, `docs/advisory-ci.md`); a
+  `ManifestError` that reaches `main()` keeps exit 2. Tests: the issue's
+  reproduction through the CLI, four sites × ten wrong-typed values, nine
+  `category_order` values that are not a list, the values YAML cannot
+  build in an episode and in `shelf.yml`, exit 3 in-process and as a real
+  process status, `no-policy` with its negative and positive fixtures,
+  and a reconciliation of SPEC 9.1 with the rule ids and severities the
+  engine emits, read from the source by `ast` (26 rules on both sides).
+  SPEC 11: exit code 3 is additive and the `kind` narrowing touches no
+  live shelf; whether this is a minor revision of the document is the
+  owner's call.
+- **Release: a manual run from a branch no longer publishes, and the wheel
+  is smoke-tested before upload (#61).** `release.yml` also runs on
+  `workflow_dispatch`, and `publish-pypi` had no condition of its own: from
+  a branch, the gate skips its tag == `__version__` step, so nothing
+  stood between that run and PyPI. `publish-pypi` now runs on tag refs
+  only, the condition of that step and of `github-release`; a manual run
+  from a tag (a retry) still publishes behind the same check. `build`
+  installs the wheel it built into a venv in `$RUNNER_TEMP` — outside the
+  checkout, whose `spec/` `load_schema` would otherwise fall back to — and
+  runs `--version`, `init` and `validate --ci` before the upload: a wheel
+  that lost its `force-include`d schema used to pass `twine check` and
+  every test. Tests: the publishing condition as a truth table over the
+  refs a run can start from, evaluated from the workflow's own `if:`
+  strings, and the smoke step's place and shape.
+- **Schema: path fields refuse control characters, a category refuses `.`
+  (#58).** The nine path fields (`docs_root`, `categories[]`,
+  `index.path`, `ledger.path`, `policy.path`, `policy.patterns`,
+  `extra_dirs[]`, `agents.path`, `provenance.dir`) shared a pattern whose
+  verdict depended on the regex engine: Python's `re`, which `jsonschema`
+  runs it with, lets `$` match before a final newline and `.` match a
+  carriage return and U+2028/U+2029, while ECMA-262 — the dialect of
+  JSON Schema patterns — refuses all of these. `docs_root: "docs\n"`
+  passed the reference validator and reached the tree checks; on 27 test
+  values × 9 patterns, Python and node `new RegExp(p, 'u')` disagreed 63
+  times before and 0 times after. The category `.` is `docs_root` itself:
+  `init` created no directory for it and `validate` said valid. Each path
+  now refuses control characters (U+0000–U+001F, U+007F–U+009F) and the
+  line/paragraph separators (U+2028, U+2029) through a lookahead that
+  needs no `$`, and a category also refuses `.` — exit 2,
+  `manifest-invalid`. SPEC 3 states the same path rules; the schema's
+  `docs_root` and `categories` descriptions name them. Tests: 8 such
+  values in each of the 9 fields through `load_manifest`, with YAML shown
+  to hand the value over intact; ordinary names (`a.b`, `.hidden`, a
+  space, Cyrillic) stay valid; `.` and `a\n` refused by `init` on a new
+  and an existing shelf (where the duplicate case joins them);
+  `validate --ci` exit 2 for a newline in `docs_root`, `index.path`, a
+  category, and for the category `.`. SPEC 11: this narrows the set of
+  valid manifests, a format change; both live shelves and the spec
+  examples still validate. Minor or major is the owner's call.
+- **`docs/advisory-ci.md` installs the current release (#62).** Both
+  install lines still said `shelf-spec>=0.2,<0.3` after 0.3.0 shipped, so
+  a shelf that copied the job got 0.2.x, without `ledger-orphan-row` and
+  `episode-without-row`; the job's `actions/setup-python@v6` lagged the
+  repository's own workflows. Now `>=0.3,<0.4` (on PyPI it resolves to
+  0.3.0, which validates both live shelves with 0 findings) and `@v7`.
+  A test reads the page's pins and requires each to admit `__version__`
+  and stop before the next minor, so the next release that bumps the
+  version without the page fails in CI.
 
 ## 0.3.0 (2026-10-06)
 
